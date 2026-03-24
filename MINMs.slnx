@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="minms.client/minms.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="MINMs.Server/MINMs.Server.csproj" />
+</Solution>

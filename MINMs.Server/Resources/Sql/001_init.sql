@@ -1,0 +1,2 @@
+-- Initial SQL script placeholder.
+-- Add schema bootstrap statements here.
