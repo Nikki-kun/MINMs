@@ -9,6 +9,38 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
 {
     private const int MaxLimit = 50;
 
+    public async Task<UserPublicDto?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default) =>
+        await connectionFactory.WithConnectionAsync(async connection =>
+        {
+            if (connection is not MySqlConnection mysql)
+                throw new InvalidOperationException("Expected MySqlConnection.");
+
+            await using var cmd = mysql.CreateCommand();
+            cmd.CommandText =
+                """
+                SELECT user_id, username, user_created_at
+                FROM users
+                WHERE user_id = @id
+                LIMIT 1
+                """;
+            cmd.Parameters.AddWithValue("@id", userId);
+
+            await using var reader = await cmd.ExecuteReaderAsync(
+                CommandBehavior.SingleRow,
+                cancellationToken).ConfigureAwait(false);
+
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                return null;
+
+            var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
+            return new UserPublicDto
+            {
+                UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
+                Username = reader.GetString(reader.GetOrdinal("username")),
+                UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
+            };
+        }, cancellationToken).ConfigureAwait(false);
+
     public async Task<IReadOnlyList<UserPublicDto>> SearchByUsernameAsync(
         string query,
         int limit,
@@ -29,7 +61,7 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
                 """
-                SELECT user_id, username, online, user_last_seen, user_created_at
+                SELECT user_id, username, user_created_at
                 FROM users
                 WHERE username LIKE @pattern ESCAPE '\\'
                 ORDER BY username
@@ -46,8 +78,6 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
                 {
                     UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
-                    Online = reader.GetBoolean(reader.GetOrdinal("online")),
-                    UserLastSeen = reader.GetDateTime(reader.GetOrdinal("user_last_seen")),
                     UserCreatedAt = reader.GetDateTime(reader.GetOrdinal("user_created_at")),
                 });
             }

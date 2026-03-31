@@ -1,10 +1,18 @@
 <script setup lang="ts">
+import { useAuth } from '@/composables/useAuth'
+import { LogIn, Send } from 'lucide-vue-next'
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { MessageCircle } from 'lucide-vue-next'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
+const { isAuthenticated, user, clearSession } = useAuth()
 const isHome = computed(() => route.path === '/')
+
+function logout() {
+  clearSession()
+  void router.push('/login')
+}
 
 const navLinkClass =
   'rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 ring-1 ring-transparent transition-colors hover:bg-white/10 hover:text-white'
@@ -12,6 +20,11 @@ const navActiveClass = 'bg-white/15 text-white shadow-sm ring-white/20'
 
 function navClass(path: string) {
   return [navLinkClass, route.path === path ? navActiveClass : '']
+}
+
+function authEntryClass() {
+  const onAuthPages = route.path === '/login' || route.path === '/register'
+  return [navLinkClass, onAuthPages ? navActiveClass : '', 'inline-flex items-center gap-1.5']
 }
 </script>
 
@@ -28,7 +41,7 @@ function navClass(path: string) {
           <span
             class="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/90 to-teal-600/90 text-white shadow-lg shadow-emerald-900/40 ring-1 ring-white/20 transition group-hover:brightness-110"
           >
-            <MessageCircle class="size-5" aria-hidden="true" />
+            <Send class="size-5" aria-hidden="true" />
           </span>
           <span class="text-lg font-semibold tracking-tight">MINMs</span>
         </RouterLink>
@@ -39,9 +52,35 @@ function navClass(path: string) {
           <RouterLink to="/users" :class="navClass('/users')">
             Люди
           </RouterLink>
-          <RouterLink to="/about" :class="navClass('/about')">
-            О проекте
-          </RouterLink>
+          <template v-if="isAuthenticated">
+            <span class="hidden text-zinc-600 sm:inline" aria-hidden="true">|</span>
+            <RouterLink
+              to="/profile"
+              :class="navClass('/profile')"
+              class="max-w-[10rem] truncate"
+              :title="user?.username ?? 'Профиль'"
+            >
+              {{ user?.username }}
+            </RouterLink>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 ring-1 ring-transparent transition-colors hover:bg-white/10 hover:text-white"
+              @click="logout"
+            >
+              Выйти
+            </button>
+          </template>
+          <template v-else>
+            <RouterLink
+              to="/login"
+              :class="authEntryClass()"
+              title="Вход. Регистрация — со страницы входа."
+              aria-label="Вход"
+            >
+              <LogIn class="size-4 shrink-0 opacity-90" aria-hidden="true" />
+              <span>Вход</span>
+            </RouterLink>
+          </template>
         </nav>
       </div>
     </header>

@@ -1,21 +1,43 @@
 <script setup lang="ts">
+import { apiFetch } from '@/api/client'
+import { useAuth } from '@/composables/useAuth'
 import { Loader2, Search, User } from 'lucide-vue-next'
 import { onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const { clearSession } = useAuth()
 
 export type UserPublic = {
   userId: number
   username: string
-  online: boolean
-  userLastSeen: string
   userCreatedAt: string
 }
 
 const query = ref('')
 const results = ref<UserPublic[]>([])
 const loading = ref(false)
+const showLoadingIndicator = ref(false)
 const error = ref<string | null>(null)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let loadingDelayTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearLoadingDelay() {
+  if (loadingDelayTimer) {
+    clearTimeout(loadingDelayTimer)
+    loadingDelayTimer = null
+  }
+  showLoadingIndicator.value = false
+}
+
+function scheduleLoadingIndicator() {
+  clearLoadingDelay()
+  loadingDelayTimer = setTimeout(() => {
+    loadingDelayTimer = null
+    showLoadingIndicator.value = true
+  }, 100)
+}
 
 async function runSearch(q: string) {
   const term = q.trim()
@@ -23,14 +45,16 @@ async function runSearch(q: string) {
     results.value = []
     error.value = null
     loading.value = false
+    clearLoadingDelay()
     return
   }
 
   loading.value = true
+  scheduleLoadingIndicator()
   error.value = null
   try {
     const params = new URLSearchParams({ q: term, limit: '30' })
-    const res = await fetch(`/api/users/search?${params}`)
+    const res = await apiFetch(`/api/users/search?${params}`)
     if (!res.ok) {
       throw new Error(`Request failed (${res.status})`)
     }
@@ -40,6 +64,7 @@ async function runSearch(q: string) {
     error.value = e instanceof Error ? e.message : 'Something went wrong'
   } finally {
     loading.value = false
+    clearLoadingDelay()
   }
 }
 
@@ -57,6 +82,7 @@ watch(
 
 onUnmounted(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
+  clearLoadingDelay()
 })
 
 function formatWhen(iso: string) {
@@ -103,7 +129,7 @@ function formatWhen(iso: string) {
         </p>
 
         <div
-          v-if="loading"
+          v-if="showLoadingIndicator"
           class="flex items-center gap-2 text-sm text-zinc-400"
           aria-live="polite"
         >
@@ -129,19 +155,6 @@ function formatWhen(iso: string) {
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium text-zinc-100">{{ u.username }}</span>
-                <span
-                  v-if="u.online"
-                  class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-emerald-500/25"
-                >
-                  <span class="size-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" aria-hidden="true" />
-                  онлайн
-                </span>
-                <span
-                  v-else
-                  class="text-xs text-zinc-500"
-                >
-                  {{ formatWhen(u.userLastSeen) }}
-                </span>
               </div>
               <p class="mt-0.5 text-xs text-zinc-600">
                 Зарегистрирован(а) {{ formatWhen(u.userCreatedAt) }}

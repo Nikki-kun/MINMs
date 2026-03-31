@@ -1,7 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { AUTH_STORAGE_KEY } from '@/composables/useAuth'
 import HomeView from '../views/HomeView.vue'
-import AboutView from '../views/AboutView.vue'
 import UsersSearchView from '../views/UsersSearchView.vue'
+import LoginView from '../views/LoginView.vue'
+import ProfileView from '../views/ProfileView.vue'
+import RegisterView from '../views/RegisterView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,16 +15,34 @@ const router = createRouter({
       component: HomeView
     },
     {
-      path: '/about',
-      name: 'about',
-      component: AboutView
-    },
-    {
       path: '/users',
       name: 'users-search',
       component: UsersSearchView
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfileView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView
     }
   ]
+})
+
+router.beforeEach((to) => {
+  if (!to.meta.requiresAuth) return true
+  if (typeof localStorage === 'undefined') return true
+  if (localStorage.getItem(AUTH_STORAGE_KEY)) return true
+  return { name: 'login', query: { redirect: to.fullPath } }
 })
 
 export default router
