@@ -140,7 +140,7 @@ function formatWhen(iso: string) {
                   v-else
                   class="text-xs text-zinc-500"
                 >
-                  был(а) {{ formatWhen(u.userLastSeen) }}
+                  {{ formatWhen(u.userLastSeen) }}
                 </span>
               </div>
               <p class="mt-0.5 text-xs text-zinc-600">
