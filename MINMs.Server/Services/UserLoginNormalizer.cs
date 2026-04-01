@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 
 namespace MINMs.Server.Services;
 
-/// <summary>Telegram-style handle: lowercase, no spaces; stored without leading @.</summary>
 public static partial class UserLoginNormalizer
 {
     public const int MinLength = 5;
