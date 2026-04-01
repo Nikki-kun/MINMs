@@ -7,7 +7,24 @@ CREATE TABLE `users` (
 	`online` TINYINT(1) NOT NULL DEFAULT FALSE,
 	`user_last_seen` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`user_created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	PRIMARY KEY (`user_id`)
+	PRIMARY KEY (`user_id`),
+	UNIQUE KEY `uk_users_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `files` (
+	`file_id` INT NOT NULL AUTO_INCREMENT,
+	`owner_user_id` INT NULL,
+	`original_filename` VARCHAR(500) NOT NULL,
+	`remote_path` VARCHAR(2048) NOT NULL,
+	`size_bytes` BIGINT NULL,
+	`content_type` VARCHAR(255) NULL,
+	`ftp_server_id` INT NULL,
+	`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`file_id`),
+	KEY `idx_files_owner` (`owner_user_id`),
+	KEY `idx_files_ftp_server` (`ftp_server_id`),
+	CONSTRAINT `fk_files_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`user_id`)
+		ON DELETE SET NULL ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `contacts` (
