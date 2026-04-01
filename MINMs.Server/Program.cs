@@ -1,9 +1,10 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Minio;
 using MINMs.Server.Database;
 using MINMs.Server.Options;
 using MINMs.Server.Services;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,28 @@ builder.Services
             ClockSkew = TimeSpan.FromMinutes(2),
         };
     });
+
+var minioConfig = builder.Configuration.GetSection("MinIO");
+var endpoint = minioConfig["Endpoint"];
+var accessKey = minioConfig["AccessKey"];
+var secretKey = minioConfig["SecretKey"];
+var secure = bool.Parse(minioConfig["Secure"] ?? "false");
+var bucketName = minioConfig["BucketName"];
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+
+
+    var client = new MinioClient()
+        .WithEndpoint(endpoint)
+        .WithCredentials(accessKey, secretKey)
+        .WithSSL(secure)
+        .Build();
+
+    return client;
+});
+
+builder.Services.AddSingleton<string>(bucketName ?? "minms");
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
