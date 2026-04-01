@@ -38,8 +38,10 @@ public sealed class AuthController(AuthService authService, UserSearchService us
         {
             RegisterOutcomeKind.Created when outcome.Response is not null =>
                 StatusCode(StatusCodes.Status201Created, outcome.Response),
-            RegisterOutcomeKind.DuplicateUsername =>
-                Conflict(new { message = "Имя пользователя уже занято." }),
+            RegisterOutcomeKind.DuplicateLogin =>
+                Conflict(new { message = "Этот логин уже занят." }),
+            RegisterOutcomeKind.InvalidLogin =>
+                BadRequest(new { message = "Логин: 5–32 символа, латиница, цифры и подчёркивание, без пробелов." }),
             _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
         };
     }
@@ -54,7 +56,7 @@ public sealed class AuthController(AuthService authService, UserSearchService us
     {
         var response = await authService.LoginAsync(request, cancellationToken).ConfigureAwait(false);
         if (response is null)
-            return Unauthorized(new { message = "Неверное имя пользователя или пароль." });
+            return Unauthorized(new { message = "Неверный логин или пароль." });
 
         return Ok(response);
     }

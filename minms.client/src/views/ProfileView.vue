@@ -13,11 +13,13 @@ onMounted(async () => {
   if (!res.ok) return
   const data = (await res.json()) as {
     userId: number
+    login: string
     username: string
     userCreatedAt: string
   }
   persistSession(t, {
     userId: data.userId,
+    login: data.login,
     username: data.username,
     userCreatedAt: data.userCreatedAt,
   })
@@ -74,8 +76,14 @@ const createdLabel = computed(() => {
 
                     <div class="w-full space-y-4">
                       <div>
-                        <p class="mt-1.5 break-all text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                        <p class="mt-1.5 break-words text-xl font-semibold tracking-tight text-white sm:text-2xl">
                           {{ user?.username ?? '—' }}
+                        </p>
+                        <p
+                          class="mt-2 font-mono text-sm text-emerald-400/95"
+                          title="Публичный логин"
+                        >
+                          {{ user?.login ? `@${user.login}` : '—' }}
                         </p>
                       </div>
 

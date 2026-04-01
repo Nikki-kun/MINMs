@@ -5,8 +5,13 @@ namespace MINMs.Server.Models.Dtos;
 public sealed class RegisterRequest
 {
     [Required]
-    [StringLength(100, MinimumLength = 3)]
+    [StringLength(100, MinimumLength = 1)]
     public string Username { get; set; } = string.Empty;
+
+    /// <summary>Логин в стиле Telegram (@nick), без пробелов; на сервере приводится к lowercase.</summary>
+    [Required]
+    [StringLength(40, MinimumLength = 1)]
+    public string Login { get; set; } = string.Empty;
 
     [Required]
     [StringLength(256, MinimumLength = 8)]

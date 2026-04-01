@@ -5,6 +5,8 @@ const STORAGE_KEY = AUTH_STORAGE_KEY
 
 export type AuthUser = {
   userId: number
+  /** Уникальный ник в стиле Telegram, lowercase в API; в UI показывайте с @ */
+  login: string
   username: string
   /** ISO-8601 с сервера (дата создания профиля) */
   userCreatedAt?: string
@@ -26,7 +28,14 @@ function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem('minms.user')
   if (!raw) return null
   try {
-    return JSON.parse(raw) as AuthUser
+    const u = JSON.parse(raw) as Partial<AuthUser> & { userId?: number; username?: string }
+    if (typeof u.userId !== 'number' || typeof u.username !== 'string') return null
+    return {
+      userId: u.userId,
+      login: typeof u.login === 'string' ? u.login : '',
+      username: u.username,
+      userCreatedAt: u.userCreatedAt,
+    }
   } catch {
     return null
   }

@@ -1,26 +1,27 @@
 <script setup lang="ts">
 import { apiFetch } from '@/api/client'
-import { useAuth } from '@/composables/useAuth'
 import { Loader2, Search, User } from 'lucide-vue-next'
 import { onUnmounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
+const route = useRoute()
 const router = useRouter()
-const { clearSession } = useAuth()
 
 export type UserPublic = {
   userId: number
+  login: string
   username: string
   userCreatedAt: string
 }
 
-const query = ref('')
+const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const results = ref<UserPublic[]>([])
 const loading = ref(false)
 const showLoadingIndicator = ref(false)
 const error = ref<string | null>(null)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let urlDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let loadingDelayTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearLoadingDelay() {
@@ -69,6 +70,15 @@ async function runSearch(q: string) {
 }
 
 watch(
+  () => route.query.q,
+  (q) => {
+    const s = typeof q === 'string' ? q : ''
+    if (s !== query.value) query.value = s
+  },
+  { immediate: true }
+)
+
+watch(
   query,
   (value) => {
     if (debounceTimer) clearTimeout(debounceTimer)
@@ -76,12 +86,22 @@ watch(
       debounceTimer = null
       void runSearch(value)
     }, 300)
+
+    if (urlDebounceTimer) clearTimeout(urlDebounceTimer)
+    urlDebounceTimer = setTimeout(() => {
+      urlDebounceTimer = null
+      const term = value.trim()
+      const current = typeof route.query.q === 'string' ? route.query.q : ''
+      if (term === current) return
+      void router.replace({ path: '/users', query: term ? { q: term } : {} })
+    }, 400)
   },
   { immediate: true }
 )
 
 onUnmounted(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
+  if (urlDebounceTimer) clearTimeout(urlDebounceTimer)
   clearLoadingDelay()
 })
 
@@ -103,7 +123,7 @@ function formatWhen(iso: string) {
             Поиск пользователей
           </h1>
           <p class="mt-2 text-sm leading-relaxed text-zinc-400">
-            Введите часть имени пользователя — покажем до 30 совпадений.
+            Введите часть логина (<span class="font-mono text-zinc-300">@nick</span>) или имени — до 30 совпадений.
           </p>
         </div>
 
@@ -116,7 +136,7 @@ function formatWhen(iso: string) {
             v-model="query"
             type="search"
             autocomplete="off"
-            placeholder="Имя пользователя…"
+            placeholder="Логин или имя…"
             class="w-full rounded-xl border border-white/10 bg-zinc-950/80 py-3 pl-11 pr-4 text-zinc-100 shadow-inner outline-none ring-emerald-500/0 transition placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/25"
           />
         </div>
@@ -155,6 +175,7 @@ function formatWhen(iso: string) {
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium text-zinc-100">{{ u.username }}</span>
+                <span class="font-mono text-sm text-emerald-400/90">@{{ u.login }}</span>
               </div>
               <p class="mt-0.5 text-xs text-zinc-600">
                 Зарегистрирован(а) {{ formatWhen(u.userCreatedAt) }}

@@ -12,7 +12,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options)
 {
     private readonly JwtOptions _options = options.Value;
 
-    public AuthTokenResult CreateAccessToken(int userId, string username)
+    public AuthTokenResult CreateAccessToken(int userId, string login)
     {
         var expires = DateTime.UtcNow.AddMinutes(Math.Clamp(_options.ExpiresMinutes, 1, 10080));
         var keyBytes = Encoding.UTF8.GetBytes(_options.Key);
@@ -25,9 +25,9 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options)
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString(CultureInfo.InvariantCulture)),
-            new(JwtRegisteredClaimNames.Name, username),
+            new(JwtRegisteredClaimNames.Name, login),
             new(ClaimTypes.NameIdentifier, userId.ToString(CultureInfo.InvariantCulture)),
-            new(ClaimTypes.Name, username),
+            new(ClaimTypes.Name, login),
         };
 
         var token = new JwtSecurityToken(

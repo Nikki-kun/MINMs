@@ -18,7 +18,7 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
                 """
-                SELECT user_id, username, user_created_at
+                SELECT user_id, login, username, user_created_at
                 FROM users
                 WHERE user_id = @id
                 LIMIT 1
@@ -36,6 +36,7 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
             return new UserPublicDto
             {
                 UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
+                Login = reader.GetString(reader.GetOrdinal("login")),
                 Username = reader.GetString(reader.GetOrdinal("username")),
                 UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
             };
@@ -61,10 +62,11 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
                 """
-                SELECT user_id, username, user_created_at
+                SELECT user_id, login, username, user_created_at
                 FROM users
-                WHERE username LIKE @pattern ESCAPE '\\'
-                ORDER BY username
+                WHERE login LIKE @pattern ESCAPE '\\'
+                   OR username LIKE @pattern ESCAPE '\\'
+                ORDER BY login
                 LIMIT @limit
                 """;
             cmd.Parameters.AddWithValue("@pattern", pattern);
@@ -77,6 +79,7 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
                 results.Add(new UserPublicDto
                 {
                     UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
+                    Login = reader.GetString(reader.GetOrdinal("login")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     UserCreatedAt = reader.GetDateTime(reader.GetOrdinal("user_created_at")),
                 });

@@ -3,12 +3,13 @@
 CREATE TABLE `users` (
 	`user_id` INT NOT NULL AUTO_INCREMENT,
 	`username` VARCHAR(100) NOT NULL,
+	`login` VARCHAR(32) NOT NULL,
 	`password_hash` VARCHAR(255) NOT NULL,
-	`online` TINYINT(1) NOT NULL DEFAULT FALSE,
+	`online` TINYINT(1) NOT NULL DEFAULT 0,
 	`user_last_seen` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`user_created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (`user_id`),
-	UNIQUE KEY `uk_users_username` (`username`)
+	UNIQUE KEY `uk_users_login` (`login`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `files` (
@@ -58,8 +59,8 @@ CREATE TABLE `chat_participants` (
 	`participant_role` TINYINT NOT NULL DEFAULT 2,
 	`membership_status` TINYINT NOT NULL DEFAULT 0,
 	`joined_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	`left_at` DATETIME NULL DEFAULT NULL,
-	`banned_at` DATETIME NULL DEFAULT NULL,
+	`left_at` DATETIME NULL,
+	`banned_at` DATETIME NULL,
 	PRIMARY KEY (`chat_id`, `user_id`),
 	KEY `idx_chat_participants_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

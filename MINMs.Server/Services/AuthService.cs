@@ -10,6 +10,10 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
     public async Task<RegisterOutcome> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var username = request.Username.Trim();
+        var login = UserLoginNormalizer.Normalize(request.Login);
+        if (!UserLoginNormalizer.IsValid(login))
+            return RegisterOutcome.InvalidLogin;
+
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 11);
 
         try
@@ -22,10 +26,11 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
                 await using var cmd = mysql.CreateCommand();
                 cmd.CommandText =
                     """
-                    INSERT INTO users (username, password_hash, online, user_last_seen, user_created_at)
-                    VALUES (@username, @password_hash, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+                    INSERT INTO users (username, login, password_hash, online, user_last_seen, user_created_at)
+                    VALUES (@username, @login, @password_hash, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
                     """;
                 cmd.Parameters.AddWithValue("@username", username);
+                cmd.Parameters.AddWithValue("@login", login);
                 cmd.Parameters.AddWithValue("@password_hash", passwordHash);
                 await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 var newId = (int)cmd.LastInsertedId;
@@ -47,20 +52,22 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
                 return (newId, createdAt);
             }, cancellationToken).ConfigureAwait(false);
 
-            var token = jwtTokenService.CreateAccessToken(userId, username);
-            return RegisterOutcome.Created(ToResponse(token, userId, username, createdAt));
+            var token = jwtTokenService.CreateAccessToken(userId, login);
+            return RegisterOutcome.Created(ToResponse(token, userId, login, username, createdAt));
         }
         catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry || ex.Number == 1062)
         {
-            return RegisterOutcome.DuplicateUsername;
+            return RegisterOutcome.DuplicateLogin;
         }
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var username = request.Username.Trim();
+        var login = UserLoginNormalizer.Normalize(request.Login);
+        if (!UserLoginNormalizer.IsValid(login))
+            return null;
 
-        var row = await connectionFactory.WithConnectionAsync<(int UserId, string? PasswordHash, DateTime? UserCreatedAt)>(async connection =>
+        var row = await connectionFactory.WithConnectionAsync<(int UserId, string PasswordHash, string Username, DateTime UserCreatedAt)?>(async connection =>
         {
             if (connection is not MySqlConnection mysql)
                 throw new InvalidOperationException("Expected MySqlConnection.");
@@ -68,29 +75,32 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
                 """
-                SELECT user_id, password_hash, user_created_at
+                SELECT user_id, password_hash, username, user_created_at
                 FROM users
-                WHERE username = @username
+                WHERE login = @login
                 LIMIT 1
                 """;
-            cmd.Parameters.AddWithValue("@username", username);
+            cmd.Parameters.AddWithValue("@login", login);
 
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                return (UserId: 0, PasswordHash: (string?)null, UserCreatedAt: (DateTime?)null);
+                return null;
 
             var id = reader.GetInt32(reader.GetOrdinal("user_id"));
             var hash = reader.GetString(reader.GetOrdinal("password_hash"));
+            var displayUsername = reader.GetString(reader.GetOrdinal("username"));
             var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
-            return (UserId: id, PasswordHash: hash, UserCreatedAt: createdAt);
+            return (id, hash, displayUsername, createdAt);
         }, cancellationToken).ConfigureAwait(false);
 
-        if (row.PasswordHash is null || !TryVerifyBcryptPassword(request.Password, row.PasswordHash))
+        if (row is null)
             return null;
 
-        var token = jwtTokenService.CreateAccessToken(row.UserId, username);
-        var createdAt = row.UserCreatedAt ?? DateTime.UtcNow;
-        return ToResponse(token, row.UserId, username, createdAt);
+        if (!TryVerifyBcryptPassword(request.Password, row.Value.PasswordHash))
+            return null;
+
+        var token = jwtTokenService.CreateAccessToken(row.Value.UserId, login);
+        return ToResponse(token, row.Value.UserId, login, row.Value.Username, row.Value.UserCreatedAt);
     }
 
     private static bool TryVerifyBcryptPassword(string password, string passwordHash)
@@ -108,12 +118,13 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
         }
     }
 
-    private static AuthResponse ToResponse(AuthTokenResult token, int userId, string username, DateTime userCreatedAt) =>
+    private static AuthResponse ToResponse(AuthTokenResult token, int userId, string login, string username, DateTime userCreatedAt) =>
         new()
         {
             AccessToken = token.Token,
             ExpiresInSeconds = (int)Math.Max(1, (token.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds),
             UserId = userId,
+            Login = login,
             Username = username,
             UserCreatedAt = userCreatedAt,
         };
@@ -122,11 +133,13 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
 public enum RegisterOutcomeKind
 {
     Created,
-    DuplicateUsername,
+    DuplicateLogin,
+    InvalidLogin,
 }
 
 public sealed record RegisterOutcome(RegisterOutcomeKind Kind, AuthResponse? Response)
 {
     public static RegisterOutcome Created(AuthResponse response) => new(RegisterOutcomeKind.Created, response);
-    public static RegisterOutcome DuplicateUsername => new(RegisterOutcomeKind.DuplicateUsername, null);
+    public static RegisterOutcome DuplicateLogin => new(RegisterOutcomeKind.DuplicateLogin, null);
+    public static RegisterOutcome InvalidLogin => new(RegisterOutcomeKind.InvalidLogin, null);
 }

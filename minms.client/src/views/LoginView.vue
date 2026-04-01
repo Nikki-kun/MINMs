@@ -9,6 +9,7 @@ type AuthResponse = {
   expiresInSeconds: number
   tokenType: string
   userId: number
+  login: string
   username: string
   userCreatedAt: string
 }
@@ -17,7 +18,7 @@ const router = useRouter()
 const route = useRoute()
 const { persistSession } = useAuth()
 
-const username = ref('')
+const login = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -30,7 +31,7 @@ async function submit() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: username.value.trim(),
+        login: login.value.trim(),
         password: password.value,
       }),
     })
@@ -42,6 +43,7 @@ async function submit() {
     }
     persistSession(data.accessToken, {
       userId: data.userId,
+      login: data.login,
       username: data.username,
       userCreatedAt: data.userCreatedAt,
     })
@@ -80,17 +82,18 @@ async function submit() {
 
       <form class="space-y-4" @submit.prevent="submit">
         <div>
-          <label for="login-username" class="mb-1.5 block text-xs font-medium text-zinc-400">
-            Имя пользователя
+          <label for="login-handle" class="mb-1.5 block text-xs font-medium text-zinc-400">
+            Логин
           </label>
           <input
-            id="login-username"
-            v-model="username"
+            id="login-handle"
+            v-model="login"
             type="text"
             autocomplete="username"
             required
-            minlength="3"
-            maxlength="100"
+            minlength="5"
+            maxlength="40"
+            placeholder="@nickname"
             class="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-2.5 text-zinc-100 outline-none ring-emerald-500/0 transition focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/25"
           />
         </div>

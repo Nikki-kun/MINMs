@@ -9,6 +9,7 @@ type AuthResponse = {
   expiresInSeconds: number
   tokenType: string
   userId: number
+  login: string
   username: string
   userCreatedAt: string
 }
@@ -16,6 +17,7 @@ type AuthResponse = {
 const router = useRouter()
 const { persistSession } = useAuth()
 
+const login = ref('')
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -29,6 +31,7 @@ async function submit() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        login: login.value.trim(),
         username: username.value.trim(),
         password: password.value,
       }),
@@ -36,7 +39,14 @@ async function submit() {
     const data = (await res.json().catch(() => ({}))) as AuthResponse & { message?: string }
     if (res.status === 409) {
       throw new Error(
-        typeof data.message === 'string' ? data.message : 'Имя пользователя уже занято.'
+        typeof data.message === 'string' ? data.message : 'Этот логин уже занят.'
+      )
+    }
+    if (res.status === 400) {
+      throw new Error(
+        typeof data.message === 'string'
+          ? data.message
+          : 'Проверьте формат логина (5–32 символа, латиница, цифры и _).'
       )
     }
     if (!res.ok) {
@@ -44,6 +54,7 @@ async function submit() {
     }
     persistSession(data.accessToken, {
       userId: data.userId,
+      login: data.login,
       username: data.username,
       userCreatedAt: data.userCreatedAt,
     })
@@ -79,16 +90,35 @@ async function submit() {
 
       <form class="space-y-4" @submit.prevent="submit">
         <div>
+          <label for="reg-login" class="mb-1.5 block text-xs font-medium text-zinc-400">
+            Логин
+          </label>
+          <p class="mb-1.5 text-[11px] leading-snug text-zinc-500">
+            Только латиница, цифры и _, без пробелов (5–32 символа).
+          </p>
+          <input
+            id="reg-login"
+            v-model="login"
+            type="text"
+            autocomplete="username"
+            required
+            minlength="5"
+            maxlength="40"
+            placeholder="@example"
+            class="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-2.5 font-mono text-zinc-100 outline-none ring-emerald-500/0 transition placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/25"
+          />
+        </div>
+        <div>
           <label for="reg-username" class="mb-1.5 block text-xs font-medium text-zinc-400">
-            Имя пользователя
+            Имя
           </label>
           <input
             id="reg-username"
             v-model="username"
             type="text"
-            autocomplete="username"
+            autocomplete="nickname"
             required
-            minlength="3"
+            minlength="1"
             maxlength="100"
             class="w-full rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-2.5 text-zinc-100 outline-none ring-emerald-500/0 transition focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/25"
           />
