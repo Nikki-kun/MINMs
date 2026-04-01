@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MINMs.Server.Services;
 
@@ -19,9 +19,9 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
 
         var objectName = $"{Guid.NewGuid()}_{file.FileName}";
 
-        var success = await _storageService.UploadFileAsync(file, objectName);
+        var (success, error) = await _storageService.UploadFileAsync(file, objectName);
         if (!success)
-            return StatusCode(500, "Ошибка загрузки в MinIO.");
+            return StatusCode(500, error ?? "Ошибка загрузки в MinIO.");
 
         return Ok(new { Message = "Файл загружен", ObjectName = objectName });
     }

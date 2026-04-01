@@ -1,4 +1,4 @@
-﻿using Minio;
+using Minio;
 using Minio.DataModel.Args;
 using Minio.Exceptions;
 
@@ -6,7 +6,7 @@ namespace MINMs.Server.Services;
 
 public interface IMinioStorageService
 {
-    Task<bool> UploadFileAsync(IFormFile file, string objectName);
+    Task<(bool Success, string? Error)> UploadFileAsync(IFormFile file, string objectName);
     Task<string> GetFileUrlAsync(string objectName, int expiryInSeconds = 3600);
     Task<bool> DeleteFileAsync(string objectName);
     Task<bool> FileExistsAsync(string objectName);
@@ -17,24 +17,10 @@ public sealed class MinioStorageService(IMinioClient minioClient, string bucketN
     private readonly IMinioClient _minioClient = minioClient;
     private readonly string _bucketName = bucketName;
 
-    private async Task EnsureBucketExistsAsync()
-    {
-        var bucketExistsArgs = new BucketExistsArgs().WithBucket(_bucketName);
-        bool found = await _minioClient.BucketExistsAsync(bucketExistsArgs);
-
-        if (!found)
-        {
-            var makeBucketArgs = new MakeBucketArgs().WithBucket(_bucketName);
-            await _minioClient.MakeBucketAsync(makeBucketArgs);
-        }
-    }
-
-    public async Task<bool> UploadFileAsync(IFormFile file, string objectName)
+    public async Task<(bool Success, string? Error)> UploadFileAsync(IFormFile file, string objectName)
     {
         try
         {
-            await EnsureBucketExistsAsync();
-
             using var stream = file.OpenReadStream();
             var putObjectArgs = new PutObjectArgs()
                 .WithBucket(_bucketName)
@@ -44,12 +30,21 @@ public sealed class MinioStorageService(IMinioClient minioClient, string bucketN
                 .WithContentType(file.ContentType);
 
             await _minioClient.PutObjectAsync(putObjectArgs);
-            return true;
+            return (true, null);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка загрузки: {ex.Message}");
-            return false;
+            var msg = ex.Message;
+            Console.WriteLine($"Ошибка загрузки: {msg}");
+            if (msg.Contains("request time", StringComparison.OrdinalIgnoreCase) &&
+                msg.Contains("too large", StringComparison.OrdinalIgnoreCase))
+            {
+                msg =
+                    "Время на компьютере сильно расходится со временем MinIO (подпись запроса отклонена). "
+                    + "Синхронизируйте дату и время Windows, затем перезапустите Docker Desktop или выполните wsl --shutdown и снова запустите контейнеры.";
+            }
+
+            return (false, msg);
         }
     }
 

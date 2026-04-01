@@ -51,6 +51,7 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
         .WithEndpoint(options.Endpoint)
         .WithCredentials(options.AccessKey, options.SecretKey)
         .WithSSL(options.Secure)
+        .WithRegion(string.IsNullOrWhiteSpace(options.Region) ? "us-east-1" : options.Region)
         .Build();
 
     return client;
@@ -59,6 +60,7 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<IOptions<MinioOptions>>().Value.BucketName);
 
+builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

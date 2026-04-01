@@ -1,4 +1,4 @@
-﻿namespace MINMs.Server.Options;
+namespace MINMs.Server.Options;
 
 public sealed class MinioOptions
 {
@@ -8,5 +8,6 @@ public sealed class MinioOptions
     public string SecretKey { get; set; } = string.Empty;
     public bool Secure { get; set; } = false;
     public string BucketName { get; set; } = "minms";
+    public string Region { get; set; } = "us-east-1";
 };
 

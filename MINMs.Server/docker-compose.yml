@@ -17,6 +17,7 @@ services:
       retries: 5
       start_period: 30s
 
+  # Если MinIO отвечает про «request time … too large» — синхронизируйте время Windows и перезапустите Docker (часто после сна: wsl --shutdown).
   minio:
     image: minio/minio:latest
     container_name: messenger_minio
@@ -28,6 +29,22 @@ services:
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: admin123456
+      # S3 API от имени root (иначе часть вызовов к бакету может вернуть AccessDenied)
+      MINIO_API_ROOT_ACCESS: "on"
 
+  # Создаёт бакет minms без BucketExists/HeadBucket из приложения (избегает AccessDenied на /minms/).
+  minio-init:
+    image: minio/mc:latest
+    container_name: messenger_minio_init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 admin admin123456 2>/dev/null; do sleep 1; done;
+      mc mb local/minms --ignore-existing;
+      exit 0;
+      "
+369
 volumes:
   mysql_data:
