@@ -42,6 +42,6 @@ services:
       mc mb local/minms --ignore-existing;
       exit 0;
       "
-      369
+
 volumes:
   mysql_data:

@@ -5,6 +5,9 @@ using MySqlConnector;
 
 namespace MINMs.Server.Services;
 
+/// <summary>
+/// Регистрация и вход: запись в MySQL, хеш пароля BCrypt, выдача JWT через <see cref="JwtTokenService"/>.
+/// </summary>
 public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtTokenService jwtTokenService)
 {
     public async Task<RegisterOutcome> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)

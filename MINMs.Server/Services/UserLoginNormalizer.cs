@@ -2,6 +2,9 @@ using System.Text.RegularExpressions;
 
 namespace MINMs.Server.Services;
 
+/// <summary>
+/// Единые правила для логина: обрезка, снятие префикса <c>@</c>, нижний регистр и проверка допустимых символов.
+/// </summary>
 public static partial class UserLoginNormalizer
 {
     public const int MinLength = 5;

@@ -1,5 +1,6 @@
 namespace MINMs.Server.Models.Dtos;
 
+/// <summary>Ответ после успешной регистрации или входа: JWT и публичные поля пользователя.</summary>
 public sealed class AuthResponse
 {
     public string AccessToken { get; set; } = string.Empty;

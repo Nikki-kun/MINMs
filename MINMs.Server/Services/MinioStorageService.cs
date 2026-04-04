@@ -4,6 +4,7 @@ using Minio.Exceptions;
 
 namespace MINMs.Server.Services;
 
+/// <summary>Операции с объектами в одном бакете MinIO.</summary>
 public interface IMinioStorageService
 {
     Task<(bool Success, string? Error)> UploadFileAsync(IFormFile file, string objectName);
@@ -12,6 +13,7 @@ public interface IMinioStorageService
     Task<bool> FileExistsAsync(string objectName);
 }
 
+/// <inheritdoc />
 public sealed class MinioStorageService(IMinioClient minioClient, string bucketName) : IMinioStorageService
 {
     private readonly IMinioClient _minioClient = minioClient;

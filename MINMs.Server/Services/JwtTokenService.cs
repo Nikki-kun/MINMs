@@ -8,6 +8,9 @@ using MINMs.Server.Options;
 
 namespace MINMs.Server.Services;
 
+/// <summary>
+/// Формирование подписанного access token (алгоритм HS256, клеймы идентификатора и логина).
+/// </summary>
 public sealed class JwtTokenService(IOptions<JwtOptions> options)
 {
     private readonly JwtOptions _options = options.Value;

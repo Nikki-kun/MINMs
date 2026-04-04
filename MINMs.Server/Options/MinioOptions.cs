@@ -1,5 +1,8 @@
 namespace MINMs.Server.Options;
 
+/// <summary>
+/// Параметры подключения к MinIO.
+/// </summary>
 public sealed class MinioOptions
 {
     public const string SectionName = "MinIO";
@@ -9,5 +12,5 @@ public sealed class MinioOptions
     public bool Secure { get; set; } = false;
     public string BucketName { get; set; } = "minms";
     public string Region { get; set; } = "us-east-1";
-};
+}
 

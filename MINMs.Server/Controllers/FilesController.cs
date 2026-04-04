@@ -4,6 +4,9 @@ using MINMs.Server.Services;
 
 namespace MINMs.Server.Controllers;
 
+/// <summary>
+/// Загрузка и выдача ссылок на объекты в MinIO.
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
@@ -11,6 +14,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
 {
     private readonly IMinioStorageService _storageService = storageService;
 
+    /// <summary>Загружает файл в бакет; имя объекта генерируется на сервере.</summary>
     [HttpPost("upload")]
     public async Task<IActionResult> Upload(IFormFile file)
     {
@@ -26,6 +30,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
         return Ok(new { Message = "Файл загружен", ObjectName = objectName });
     }
 
+    /// <summary>Редирект на временную presigned-ссылку для скачивания объекта.</summary>
     [HttpGet("download")]
     public async Task<IActionResult> Download(string objectName)
     {

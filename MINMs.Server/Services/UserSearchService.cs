@@ -5,10 +5,14 @@ using MySqlConnector;
 
 namespace MINMs.Server.Services;
 
+/// <summary>
+/// Чтение публичных полей пользователей из таблицы <c>users</c> и поиск по шаблону.
+/// </summary>
 public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
 {
     private const int MaxLimit = 50;
 
+    /// <summary>Возвращает карточку пользователя по первичному ключу или <c>null</c>.</summary>
     public async Task<UserPublicDto?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default) =>
         await connectionFactory.WithConnectionAsync(async connection =>
         {
@@ -42,6 +46,9 @@ public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
             };
         }, cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Поиск по подстроке в <c>login</c> и <c>username</c>; спецсимволы LIKE экранируются.
+    /// </summary>
     public async Task<IReadOnlyList<UserPublicDto>> SearchByUsernameAsync(
         string query,
         int limit,

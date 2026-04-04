@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MINMs.Server.Models.Dtos;
 
+/// <summary>Тело запроса <c>POST /api/Auth/register</c></summary>
 public sealed class RegisterRequest
 {
     [Required]

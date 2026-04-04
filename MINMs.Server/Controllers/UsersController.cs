@@ -5,6 +5,9 @@ using MINMs.Server.Services;
 
 namespace MINMs.Server.Controllers;
 
+/// <summary>
+/// Поиск пользователей
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public sealed class UsersController(UserSearchService userSearchService) : ControllerBase

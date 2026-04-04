@@ -3,6 +3,9 @@ using System.Data.Common;
 
 namespace MINMs.Server.Database;
 
+/// <summary>
+/// Вспомогательные методы для кратковременного использования одного открытого соединения к БД.
+/// </summary>
 public static class DbConnectionFactoryExtensions
 {
     public static async Task<TResult> WithConnectionAsync<TResult>(

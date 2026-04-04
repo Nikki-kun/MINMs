@@ -6,10 +6,14 @@ using MINMs.Server.Services;
 
 namespace MINMs.Server.Controllers;
 
+/// <summary>
+/// Регистрация, вход и профиль текущего пользователя.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public sealed class AuthController(AuthService authService, UserSearchService userSearchService) : ControllerBase
 {
+    /// <summary>Профиль по JWT (требуется заголовок Authorization: Bearer).</summary>
     [Authorize]
     [HttpGet("me")]
     [ProducesResponseType(typeof(UserPublicDto), StatusCodes.Status200OK)]
@@ -25,6 +29,7 @@ public sealed class AuthController(AuthService authService, UserSearchService us
         return profile is null ? NotFound() : Ok(profile);
     }
 
+    /// <summary>Создание учётной записи и выдача JWT при успехе.</summary>
     [AllowAnonymous]
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
@@ -46,6 +51,7 @@ public sealed class AuthController(AuthService authService, UserSearchService us
         };
     }
 
+    /// <summary>Проверка логина и пароля; при успехе возвращает JWT и данные пользователя.</summary>
     [AllowAnonymous]
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
