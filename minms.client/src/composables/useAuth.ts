@@ -5,10 +5,8 @@ const STORAGE_KEY = AUTH_STORAGE_KEY
 
 export type AuthUser = {
   userId: number
-  /** Уникальный ник в стиле Telegram, lowercase в API; в UI показывайте с @ */
   login: string
   username: string
-  /** ISO-8601 с сервера (дата создания профиля) */
   userCreatedAt?: string
 }
 
