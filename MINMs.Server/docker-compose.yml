@@ -6,7 +6,7 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: minms
     volumes:
       - ./Database/Migrations:/docker-entrypoint-initdb.d:ro
@@ -27,8 +27,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: admin123456
+      MINIO_ROOT_USER: test
+      MINIO_ROOT_PASSWORD: test1234
       # S3 API от имени root (иначе часть вызовов к бакету может вернуть AccessDenied)
       MINIO_API_ROOT_ACCESS: "on"
 
@@ -41,10 +41,10 @@ services:
         condition: service_started
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 admin admin123456 2>/dev/null; do sleep 1; done;
+      until mc alias set local http://minio:9000 test test 2>/dev/null; do sleep 1; done;
       mc mb local/minms --ignore-existing;
       exit 0;
       "
-369
+      369
 volumes:
   mysql_data:
