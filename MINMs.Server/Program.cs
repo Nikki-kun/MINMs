@@ -10,8 +10,8 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
-builder.Services.AddScoped<UserSearchService>();
-builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IUserSearchService, UserSearchService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddSingleton<JwtTokenService>();
 
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);

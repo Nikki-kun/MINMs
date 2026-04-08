@@ -7,6 +7,7 @@ namespace MINMs.Server.Services;
 
 public interface IUserSearchService
 {
+    Task<UserPublicDto?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UserPublicDto>> SearchByUsernameAsync(
     string query,
     int limit,

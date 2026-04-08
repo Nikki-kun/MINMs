@@ -11,7 +11,7 @@ namespace MINMs.Server.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public sealed class AuthController(AuthService authService, UserSearchService userSearchService) : ControllerBase
+public sealed class AuthController(IAuthService authService, IUserSearchService userSearchService) : ControllerBase
 {
     /// <summary>Профиль по JWT (требуется заголовок Authorization: Bearer).</summary>
     [Authorize]
