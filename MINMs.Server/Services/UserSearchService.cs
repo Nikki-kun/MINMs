@@ -5,10 +5,18 @@ using MySqlConnector;
 
 namespace MINMs.Server.Services;
 
+public interface IUserSearchService
+{
+    Task<IReadOnlyList<UserPublicDto>> SearchByUsernameAsync(
+    string query,
+    int limit,
+    CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Чтение публичных полей пользователей из таблицы <c>users</c> и поиск по шаблону.
 /// </summary>
-public sealed class UserSearchService(IDbConnectionFactory connectionFactory)
+public sealed class UserSearchService(IDbConnectionFactory connectionFactory): IUserSearchService
 {
     private const int MaxLimit = 50;
 

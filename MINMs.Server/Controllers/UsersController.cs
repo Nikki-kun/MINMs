@@ -10,7 +10,7 @@ namespace MINMs.Server.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public sealed class UsersController(UserSearchService userSearchService) : ControllerBase
+public sealed class UsersController(IUserSearchService userSearchService) : ControllerBase
 {
     [HttpGet("search")]
     [ProducesResponseType(typeof(IReadOnlyList<UserPublicDto>), StatusCodes.Status200OK)]

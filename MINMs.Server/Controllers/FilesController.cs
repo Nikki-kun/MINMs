@@ -19,15 +19,15 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
     public async Task<IActionResult> Upload(IFormFile file)
     {
         if (file == null || file.Length == 0)
-            return BadRequest("Файл не выбран.");
+            return BadRequest("The file is not selected");
 
         var objectName = $"{Guid.NewGuid()}_{file.FileName}";
 
         var (success, error) = await _storageService.UploadFileAsync(file, objectName);
         if (!success)
-            return StatusCode(500, error ?? "Ошибка загрузки в MinIO.");
+            return StatusCode(500, error ?? "Error loading to the storage");
 
-        return Ok(new { Message = "Файл загружен", ObjectName = objectName });
+        return Ok(new { Message = "The file is uploaded", ObjectName = objectName });
     }
 
     /// <summary>Редирект на временную presigned-ссылку для скачивания объекта.</summary>
@@ -36,7 +36,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
     {
         var url = await _storageService.GetFileUrlAsync(objectName);
         if (string.IsNullOrEmpty(url))
-            return NotFound("Файл не найден.");
+            return NotFound("The file was not found");
 
         return Redirect(url);
     }

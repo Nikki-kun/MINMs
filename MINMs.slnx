@@ -1,5 +1,6 @@
 <Solution>
-  <Project Path="minms.client/minms.client.esproj">
+  <Project Path="MINMs.UnitTests/MINMs.UnitTests.csproj"/>
+  <Project Path="MINMs.Client/MINMs.Сlient.esproj">
     <Build />
     <Deploy />
   </Project>
