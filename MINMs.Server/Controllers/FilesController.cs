@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MINMs.Server.Models.Dtos;
 using MINMs.Server.Services;
 
 namespace MINMs.Server.Controllers;
@@ -16,6 +17,9 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
 
     /// <summary>Загружает файл в бакет; имя объекта генерируется на сервере.</summary>
     [HttpPost("upload")]
+    [ProducesResponseType(typeof(FileUploadResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Upload(IFormFile file)
     {
         if (file == null || file.Length == 0)
@@ -27,11 +31,17 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
         if (!success)
             return StatusCode(500, error ?? "Error loading to the storage");
 
-        return Ok(new { Message = "The file is uploaded", ObjectName = objectName });
+        return Ok(new FileUploadResponseDto
+        {
+            Message = "The file is uploaded",
+            ObjectName = objectName,
+        });
     }
 
     /// <summary>Редирект на временную presigned-ссылку для скачивания объекта.</summary>
     [HttpGet("download")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Download(string objectName)
     {
         var url = await _storageService.GetFileUrlAsync(objectName);

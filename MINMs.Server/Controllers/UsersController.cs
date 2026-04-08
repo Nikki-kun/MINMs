@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MINMs.Server.Models.Dtos;
 using MINMs.Server.Services;
@@ -14,6 +13,7 @@ public sealed class UsersController(IUserSearchService userSearchService) : Cont
 {
     [HttpGet("search")]
     [ProducesResponseType(typeof(IReadOnlyList<UserPublicDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<UserPublicDto>>> Search(
         [FromQuery] string? q,
         [FromQuery] int limit = 20,

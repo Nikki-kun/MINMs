@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MINMs.Server.Controllers;
+using MINMs.Server.Models.Dtos;
 using MINMs.Server.Services;
 using Moq;
+using Xunit;
 
 namespace MINMs.UnitTests.Controllers;
 
@@ -20,7 +22,7 @@ public class FilesControllerTests
     #region Upload Tests
 
     [Fact]
-    public async Task Upload_WithValidFile_ReturnsOkWithMessageAndObjectName()
+    public async Task Upload_WithValidFile_ReturnsOkWithFileUploadResponseDto()
     {
         // Arrange
         var fileName = "testfile.jpg";
@@ -35,29 +37,51 @@ public class FilesControllerTests
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = okResult.Value;
+        var response = Assert.IsType<FileUploadResponseDto>(okResult.Value);
 
-        var message = GetPropertyValue<string>(response, "Message");
-        var objectName = GetPropertyValue<string>(response, "ObjectName");
+        Assert.Equal("The file is uploaded", response.Message);
+        Assert.Contains(fileName, response.ObjectName);
+        Assert.NotNull(response.ObjectName);
+        Assert.Contains("_", response.ObjectName);
 
-        Assert.Equal("The file is uploaded", message);
-        Assert.Contains(fileName, objectName);
+        var guidPart = response.ObjectName.Split('_')[0];
+        Assert.True(Guid.TryParse(guidPart, out _));
+
         _storageServiceMock.Verify(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
-    public async Task Upload_WithNullFile_ReturnsBadRequest()
+    public async Task Upload_WithValidFile_ReturnsOkWithCorrectStatusCode()
+    {
+        // Arrange
+        var fileMock = CreateMockFile("test.txt", "content");
+
+        _storageServiceMock
+            .Setup(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()))
+            .ReturnsAsync((true, null));
+
+        // Act
+        var result = await _controller.Upload(fileMock.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task Upload_WithNullFile_ReturnsBadRequestWithErrorMessage()
     {
         // Act
         var result = await _controller.Upload(null!);
 
         // Assert
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(400, badRequestResult.StatusCode);
         Assert.Equal("The file is not selected", badRequestResult.Value);
     }
 
     [Fact]
-    public async Task Upload_WithEmptyFile_ReturnsBadRequest()
+    public async Task Upload_WithEmptyFile_ReturnsBadRequestWithErrorMessage()
     {
         // Arrange
         var fileMock = new Mock<IFormFile>();
@@ -68,11 +92,13 @@ public class FilesControllerTests
 
         // Assert
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(400, badRequestResult.StatusCode);
         Assert.Equal("The file is not selected", badRequestResult.Value);
+        _storageServiceMock.Verify(x => x.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
-    public async Task Upload_WhenStorageServiceReturnsError_ReturnsInternalServerError()
+    public async Task Upload_WhenStorageServiceReturnsError_ReturnsInternalServerErrorWithErrorMessage()
     {
         // Arrange
         var fileMock = CreateMockFile("test.txt", "content");
@@ -116,22 +142,99 @@ public class FilesControllerTests
         // Arrange
         var fileName = "document.pdf";
         var fileMock = CreateMockFile(fileName, "content");
-        string? capturedObjectName = null;
+        FileUploadResponseDto? capturedResponse = null;
 
         _storageServiceMock
             .Setup(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()))
-            .Callback<IFormFile, string>((_, objectName) => capturedObjectName = objectName)
             .ReturnsAsync((true, null));
 
         // Act
-        await _controller.Upload(fileMock.Object);
+        var result = await _controller.Upload(fileMock.Object);
 
         // Assert
-        Assert.NotNull(capturedObjectName);
-        Assert.EndsWith($"_{fileName}", capturedObjectName);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<FileUploadResponseDto>(okResult.Value);
 
-        var guidPart = capturedObjectName[..36];
+        Assert.EndsWith($"_{fileName}", response.ObjectName);
+
+        var guidPart = response.ObjectName[..36];
         Assert.True(Guid.TryParse(guidPart, out _));
+    }
+
+    [Fact]
+    public async Task Upload_WithFileHavingSpecialCharactersInName_HandlesCorrectly()
+    {
+        // Arrange
+        var fileName = "my file (1) @#$%.jpg";
+        var fileMock = CreateMockFile(fileName, "content");
+
+        _storageServiceMock
+            .Setup(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()))
+            .ReturnsAsync((true, null));
+
+        // Act
+        var result = await _controller.Upload(fileMock.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<FileUploadResponseDto>(okResult.Value);
+
+        Assert.EndsWith($"_{fileName}", response.ObjectName);
+        Assert.Contains(fileName, response.ObjectName);
+    }
+
+    [Fact]
+    public async Task Upload_WithLargeFile_HandlesCorrectly()
+    {
+        // Arrange
+        var fileName = "largefile.bin";
+        var fileMock = CreateMockFile(fileName, new string('A', 1000000)); // 1MB content
+
+        _storageServiceMock
+            .Setup(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()))
+            .ReturnsAsync((true, null));
+
+        // Act
+        var result = await _controller.Upload(fileMock.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<FileUploadResponseDto>(okResult.Value);
+
+        Assert.Equal("The file is uploaded", response.Message);
+        Assert.Contains(fileName, response.ObjectName);
+        _storageServiceMock.Verify(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Upload_WithMultipleFiles_GeneratesDifferentObjectNames()
+    {
+        // Arrange
+        var fileNames = new[] { "file1.txt", "file2.txt", "file3.txt" };
+        var uploadedObjectNames = new List<string>();
+
+        _storageServiceMock
+            .Setup(x => x.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()))
+            .ReturnsAsync((true, null));
+
+        // Act
+        foreach (var fileName in fileNames)
+        {
+            var fileMock = CreateMockFile(fileName, "content");
+            var result = await _controller.Upload(fileMock.Object);
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<FileUploadResponseDto>(okResult.Value);
+            uploadedObjectNames.Add(response.ObjectName);
+        }
+
+        // Assert
+        Assert.Equal(3, uploadedObjectNames.Count);
+        Assert.Distinct(uploadedObjectNames);
+
+        foreach (var fileName in fileNames)
+        {
+            Assert.Contains(uploadedObjectNames, name => name.EndsWith($"_{fileName}"));
+        }
     }
 
     #endregion
@@ -143,7 +246,7 @@ public class FilesControllerTests
     {
         // Arrange
         var objectName = "file123.pdf";
-        var expectedUrl = "https://minio.example.com/bucket/file123.pdf";
+        var expectedUrl = "https://minio.example.com/bucket/file123.pdf?X-Amz-Expires=3600";
 
         _storageServiceMock
             .Setup(x => x.GetFileUrlAsync(objectName))
@@ -158,7 +261,7 @@ public class FilesControllerTests
     }
 
     [Fact]
-    public async Task Download_WhenObjectNotFound_ReturnsNotFound()
+    public async Task Download_WhenObjectNotFound_ReturnsNotFoundWithErrorMessage()
     {
         // Arrange
         var objectName = "nonexistent.txt";
@@ -172,11 +275,12 @@ public class FilesControllerTests
 
         // Assert
         var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(404, notFoundResult.StatusCode);
         Assert.Equal("The file was not found", notFoundResult.Value);
     }
 
     [Fact]
-    public async Task Download_WhenUrlIsEmpty_ReturnsNotFound()
+    public async Task Download_WhenUrlIsEmpty_ReturnsNotFoundWithErrorMessage()
     {
         // Arrange
         var objectName = "empty.txt";
@@ -190,7 +294,123 @@ public class FilesControllerTests
 
         // Assert
         var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(404, notFoundResult.StatusCode);
         Assert.Equal("The file was not found", notFoundResult.Value);
+    }
+
+    [Fact]
+    public async Task Download_WithObjectNameContainingSpecialCharacters_PassesCorrectlyToService()
+    {
+        // Arrange
+        var objectName = "folder/subfolder/file name with spaces.pdf";
+        var expectedUrl = "https://minio.example.com/presigned-url";
+
+        _storageServiceMock
+            .Setup(x => x.GetFileUrlAsync(objectName))
+            .ReturnsAsync(expectedUrl);
+
+        // Act
+        await _controller.Download(objectName);
+
+        // Assert
+        _storageServiceMock.Verify(x => x.GetFileUrlAsync(objectName), Times.Once);
+    }
+
+    [Fact]
+    public async Task Download_WithRussianCharactersInObjectName_HandlesCorrectly()
+    {
+        // Arrange
+        var objectName = "файл_с_русским_названием.pdf";
+        var expectedUrl = "https://minio.example.com/presigned-url";
+
+        _storageServiceMock
+            .Setup(x => x.GetFileUrlAsync(objectName))
+            .ReturnsAsync(expectedUrl);
+
+        // Act
+        var result = await _controller.Download(objectName);
+
+        // Assert
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.Equal(expectedUrl, redirectResult.Url);
+    }
+
+    [Fact]
+    public async Task Download_WithEmptyObjectName_ReturnsNotFound()
+    {
+        // Arrange
+        var objectName = "";
+
+        _storageServiceMock
+            .Setup(x => x.GetFileUrlAsync(objectName))
+            .ReturnsAsync((string?)null);
+
+        // Act
+        var result = await _controller.Download(objectName);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(404, notFoundResult.StatusCode);
+        Assert.Equal("The file was not found", notFoundResult.Value);
+    }
+
+    [Fact]
+    public async Task Download_WithNullObjectName_ReturnsNotFound()
+    {
+        // Arrange
+        string? objectName = null;
+
+        _storageServiceMock
+            .Setup(x => x.GetFileUrlAsync(objectName!))
+            .ReturnsAsync((string?)null);
+
+        // Act
+        var result = await _controller.Download(objectName!);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(404, notFoundResult.StatusCode);
+        Assert.Equal("The file was not found", notFoundResult.Value);
+    }
+
+    #endregion
+
+    #region Integration Scenario Tests
+
+    [Fact]
+    public async Task UploadAndDownload_CompleteFlow_WorksCorrectly()
+    {
+        // Arrange
+        var fileName = "completeflow.txt";
+        var fileMock = CreateMockFile(fileName, "test content");
+        string? uploadedObjectName = null;
+
+        _storageServiceMock
+            .Setup(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()))
+            .Callback<IFormFile, string>((_, objectName) => uploadedObjectName = objectName)
+            .ReturnsAsync((true, null));
+
+        var expectedUrl = "https://minio.example.com/presigned-url";
+        _storageServiceMock
+            .Setup(x => x.GetFileUrlAsync(It.IsAny<string>()))
+            .ReturnsAsync(expectedUrl);
+
+        // Act - Upload
+        var uploadResult = await _controller.Upload(fileMock.Object);
+        var okResult = Assert.IsType<OkObjectResult>(uploadResult);
+        var uploadResponse = Assert.IsType<FileUploadResponseDto>(okResult.Value);
+
+        // Act - Download
+        var downloadResult = await _controller.Download(uploadResponse.ObjectName);
+        var redirectResult = Assert.IsType<RedirectResult>(downloadResult);
+
+        // Assert
+        Assert.Equal("The file is uploaded", uploadResponse.Message);
+        Assert.Contains(fileName, uploadResponse.ObjectName);
+        Assert.Equal(expectedUrl, redirectResult.Url);
+
+        _storageServiceMock.Verify(x => x.UploadFileAsync(fileMock.Object, It.IsAny<string>()), Times.Once);
+        _storageServiceMock.Verify(x => x.GetFileUrlAsync(uploadResponse.ObjectName), Times.Once);
     }
 
     #endregion
@@ -213,16 +433,6 @@ public class FilesControllerTests
         fileMock.Setup(f => f.ContentType).Returns("application/octet-stream");
 
         return fileMock;
-    }
-
-    private static T? GetPropertyValue<T>(object obj, string propertyName)
-    {
-        var property = obj.GetType().GetProperty(propertyName);
-        if (property == null)
-            throw new ArgumentException($"Property '{propertyName}' not found on type '{obj.GetType()}'");
-
-        var value = property.GetValue(obj);
-        return value == null ? default : (T)value;
     }
 
     #endregion
