@@ -19,22 +19,19 @@ CREATE TABLE `files` (
 	`remote_path` VARCHAR(2048) NOT NULL,
 	`size_bytes` BIGINT NULL,
 	`content_type` VARCHAR(255) NULL,
-	`ftp_server_id` INT NULL,
 	`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (`file_id`),
 	KEY `idx_files_owner` (`owner_user_id`),
-	KEY `idx_files_ftp_server` (`ftp_server_id`),
 	CONSTRAINT `fk_files_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`user_id`)
 		ON DELETE SET NULL ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `contacts` (
-	`contact_row_id` INT NOT NULL AUTO_INCREMENT,
 	`owner_id` INT NOT NULL,
 	`contact_id` INT NOT NULL,
 	`contact_name` VARCHAR(100) NOT NULL,
 	`contact_added_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	PRIMARY KEY (`contact_row_id`),
+	PRIMARY KEY (`owner_id`, `contact_id`),
 	KEY `idx_contacts_owner` (`owner_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
