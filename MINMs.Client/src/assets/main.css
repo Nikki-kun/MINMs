@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    @apply antialiased;
+    /* Резервируем место под скроллбар, чтобы тулбар не прыгал при смене страницы */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply m-0 min-h-dvh bg-zinc-950 text-zinc-100;
+  }
+}
+
+/* Переливающийся фон для главной: крупный градиент + лёгкое движение и сдвиг оттенка */
+@keyframes minms-gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes minms-hue {
+  0% {
+    filter: hue-rotate(0deg) saturate(1.1);
+  }
+  50% {
+    filter: hue-rotate(18deg) saturate(1.25);
+  }
+  100% {
+    filter: hue-rotate(0deg) saturate(1.1);
+  }
+}
+
+.minms-home-gradient {
+  background: linear-gradient(
+    125deg,
+    #042f2e,
+    #134e4a,
+    #1e3a5f,
+    #312e81,
+    #4c1d95,
+    #831843,
+    #134e4a,
+    #0f766e
+  );
+  background-size: 400% 400%;
+  animation:
+    minms-gradient-flow 16s ease-in-out infinite,
+    minms-hue 22s ease-in-out infinite;
+}
+
+.minms-home-gradient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 120%,
+    rgba(16, 185, 129, 0.35),
+    transparent 55%
+  );
+  pointer-events: none;
+}
+
+.minms-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
