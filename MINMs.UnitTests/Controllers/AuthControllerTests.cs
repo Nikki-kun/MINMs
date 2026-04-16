@@ -11,11 +11,15 @@ public class AuthControllerTests
 {
     private readonly Mock<IAuthService> _authServiceMock = new();
     private readonly Mock<IUserSearchService> _userSearchServiceMock = new();
+    private readonly Mock<IJwtSessionService> _jwtSessionServiceMock = new();
     private readonly AuthController _controller;
 
     public AuthControllerTests()
     {
-        _controller = new AuthController(_authServiceMock.Object, _userSearchServiceMock.Object);
+        _controller = new AuthController(
+            _authServiceMock.Object,
+            _userSearchServiceMock.Object,
+            _jwtSessionServiceMock.Object);
     }
 
     [Fact]
@@ -24,7 +28,6 @@ public class AuthControllerTests
         var request = new RegisterRequest
         {
             Username = "Display Name",
-            Login = "valid_login",
             Password = "password12",
         };
         var createdAt = DateTime.UtcNow;
@@ -54,7 +57,6 @@ public class AuthControllerTests
         var request = new RegisterRequest
         {
             Username = "User",
-            Login = "taken",
             Password = "password12",
         };
         _authServiceMock
@@ -73,7 +75,6 @@ public class AuthControllerTests
         var request = new RegisterRequest
         {
             Username = "User",
-            Login = "bad",
             Password = "password12",
         };
         _authServiceMock
@@ -91,7 +92,6 @@ public class AuthControllerTests
         var request = new RegisterRequest
         {
             Username = "User",
-            Login = "valid_login",
             Password = "password12",
         };
         _authServiceMock
@@ -110,7 +110,6 @@ public class AuthControllerTests
         var request = new RegisterRequest
         {
             Username = "User",
-            Login = "valid_login",
             Password = "password12",
         };
         var cancellationToken = new CancellationToken(true);
@@ -129,7 +128,6 @@ public class AuthControllerTests
         var request = new RegisterRequest
         {
             Username = "User",
-            Login = "valid_login",
             Password = "password12",
         };
         var expected = new InvalidOperationException("db error");

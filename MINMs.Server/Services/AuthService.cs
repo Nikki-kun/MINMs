@@ -17,60 +17,71 @@ public interface IAuthService
 /// </summary>
 public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtTokenService jwtTokenService, IJwtSessionService jwtSessionService) : IAuthService
 {
+    private const int RegisterLoginGenerateAttempts = 5;
+
     public async Task<RegisterOutcome> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var username = request.Username.Trim();
-        var login = UserLoginNormalizer.Normalize(request.Login);
-        if (!UserLoginNormalizer.IsValid(login))
-            return RegisterOutcome.InvalidLogin;
-
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 11);
 
-        try
+        for (var attempt = 0; attempt < RegisterLoginGenerateAttempts; attempt++)
         {
-            var (userId, createdAt) = await connectionFactory.WithConnectionAsync<(int UserId, DateTime UserCreatedAt)>(async connection =>
+            var login = GenerateLogin();
+
+            try
             {
-                if (connection is not MySqlConnection mysql)
-                    throw new InvalidOperationException("Expected MySqlConnection.");
+                var (userId, createdAt) = await connectionFactory.WithConnectionAsync<(int UserId, DateTime UserCreatedAt)>(async connection =>
+                {
+                    if (connection is not MySqlConnection mysql)
+                        throw new InvalidOperationException("Expected MySqlConnection.");
 
-                await using var cmd = mysql.CreateCommand();
-                cmd.CommandText =
-                    """
-                    INSERT INTO users (username, login, password_hash, online, user_last_seen, user_created_at)
-                    VALUES (@username, @login, @password_hash, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-                    """;
-                cmd.Parameters.AddWithValue("@username", username);
-                cmd.Parameters.AddWithValue("@login", login);
-                cmd.Parameters.AddWithValue("@password_hash", passwordHash);
-                await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                var newId = (int)cmd.LastInsertedId;
+                    await using var cmd = mysql.CreateCommand();
+                    cmd.CommandText =
+                        """
+                        INSERT INTO users (username, login, password_hash, online, user_last_seen, user_created_at)
+                        VALUES (@username, @login, @password_hash, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+                        """;
+                    cmd.Parameters.AddWithValue("@username", username);
+                    cmd.Parameters.AddWithValue("@login", login);
+                    cmd.Parameters.AddWithValue("@password_hash", passwordHash);
+                    await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                    var newId = (int)cmd.LastInsertedId;
 
-                await using var readCmd = mysql.CreateCommand();
-                readCmd.CommandText =
-                    """
-                    SELECT user_created_at
-                    FROM users
-                    WHERE user_id = @id
-                    LIMIT 1
-                    """;
-                readCmd.Parameters.AddWithValue("@id", newId);
-                var createdAtObj = await readCmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-                var createdAt = createdAtObj is DateTime dt
-                    ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
-                    : DateTime.UtcNow;
+                    await using var readCmd = mysql.CreateCommand();
+                    readCmd.CommandText =
+                        """
+                        SELECT user_created_at
+                        FROM users
+                        WHERE user_id = @id
+                        LIMIT 1
+                        """;
+                    readCmd.Parameters.AddWithValue("@id", newId);
+                    var createdAtObj = await readCmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                    var createdAt = createdAtObj is DateTime dt
+                        ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+                        : DateTime.UtcNow;
 
-                return (newId, createdAt);
-            }, cancellationToken).ConfigureAwait(false);
+                    return (newId, createdAt);
+                }, cancellationToken).ConfigureAwait(false);
 
-            var jti = Guid.NewGuid().ToString("N");
-            var token = jwtTokenService.CreateAccessToken(userId, login, jti);
-            await jwtSessionService.CreateAsync(jti, userId, login, token.ExpiresAtUtc, cancellationToken).ConfigureAwait(false);
-            return RegisterOutcome.Created(ToResponse(token, userId, login, username, createdAt));
+                var jti = Guid.NewGuid().ToString("N");
+                var token = jwtTokenService.CreateAccessToken(userId, login, jti);
+                await jwtSessionService.CreateAsync(jti, userId, login, token.ExpiresAtUtc, cancellationToken).ConfigureAwait(false);
+                return RegisterOutcome.Created(ToResponse(token, userId, login, username, createdAt));
+            }
+            catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry || ex.Number == 1062)
+            {
+                // Повторяем попытку только при коллизии логина.
+            }
         }
-        catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry || ex.Number == 1062)
-        {
-            return RegisterOutcome.DuplicateLogin;
-        }
+
+        return RegisterOutcome.DuplicateLogin;
+    }
+
+    private static string GenerateLogin()
+    {
+        // Формируем логин, который гарантированно валиден по правилам и почти всегда уникален.
+        return $"user_{Guid.NewGuid():N}"[..13];
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)

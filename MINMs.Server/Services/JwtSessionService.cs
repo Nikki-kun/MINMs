@@ -18,7 +18,6 @@ public sealed class RedisJwtSessionService(IConnectionMultiplexer connectionMult
 {
     private const string KeyPrefix = "minms:jwt:sessions:";
 
-    // Скоуп, чтобы ключ не исчез раньше, чем JWT перестанет считаться валидным из-за ClockSkew.
     private static readonly TimeSpan TtlExtra = TimeSpan.FromMinutes(2);
 
     public async Task CreateAsync(string jti, int userId, string login, DateTime expiresAtUtc, CancellationToken cancellationToken = default)
