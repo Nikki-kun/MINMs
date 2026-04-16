@@ -1,8 +1,9 @@
 using BCrypt.Net;
-using System.Text;
 using MINMs.Server.Database;
 using MINMs.Server.Models.Dtos;
 using MySqlConnector;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MINMs.Server.Services;
 
@@ -203,4 +204,26 @@ public sealed record RegisterOutcome(RegisterOutcomeKind Kind, AuthResponse? Res
     public static RegisterOutcome Created(AuthResponse response) => new(RegisterOutcomeKind.Created, response);
     public static RegisterOutcome DuplicateLogin => new(RegisterOutcomeKind.DuplicateLogin, null);
     public static RegisterOutcome InvalidLogin => new(RegisterOutcomeKind.InvalidLogin, null);
+}
+
+
+public static partial class UserLoginNormalizer
+{
+    public const int MinLength = 5;
+    public const int MaxLength = 32;
+
+    [GeneratedRegex("^[a-z0-9_]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex ValidPattern();
+
+    public static string Normalize(string raw)
+    {
+        var s = raw.Trim();
+        if (s.StartsWith("@", StringComparison.Ordinal))
+            s = s[1..];
+        return s.ToLowerInvariant();
+    }
+
+    public static bool IsValid(string normalized) =>
+        normalized.Length is >= MinLength and <= MaxLength
+        && ValidPattern().IsMatch(normalized);
 }
