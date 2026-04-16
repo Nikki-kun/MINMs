@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { apiFetch } from '@/api/client'
 import { useAuth } from '@/composables/useAuth'
 import { LogIn, LogOut, MessagesSquare, Search, Send, Settings, UserCircle, Users } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
@@ -20,9 +21,13 @@ watch(
   { immediate: true }
 )
 
-function logout() {
-  clearSession()
-  void router.push('/login')
+async function logout() {
+  try {
+    await apiFetch('/api/auth/logout', { method: 'POST' })
+  } finally {
+    clearSession()
+    await router.push('/login')
+  }
 }
 
 function goPeopleSearch() {
