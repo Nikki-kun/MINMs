@@ -5,4 +5,7 @@
     <Deploy />
   </Project>
   <Project Path="MINMs.Server/MINMs.Server.csproj" />
+  <Folder Name="/Infrastructure/">
+    <File Path="Infrastructure/docker-compose.yml" />
+  </Folder>
 </Solution>

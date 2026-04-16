@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: minms
     volumes:
-      - ./Database/Migrations:/docker-entrypoint-initdb.d:ro
+      - ../MINMs.Server/Database/Migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 10s

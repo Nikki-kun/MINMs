@@ -39,8 +39,8 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
                     await using var cmd = mysql.CreateCommand();
                     cmd.CommandText =
                         """
-                        INSERT INTO users (username, login, password_hash, online, user_last_seen, user_created_at)
-                        VALUES (@username, @login, @password_hash, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+                        INSERT INTO users (username, login, password_hash, user_created_at)
+                        VALUES (@username, @login, @password_hash, UTC_TIMESTAMP())
                         """;
                     cmd.Parameters.AddWithValue("@username", username);
                     cmd.Parameters.AddWithValue("@login", login);
