@@ -15,7 +15,7 @@ public interface IAuthService
 /// <summary>
 /// Регистрация и вход: запись в MySQL, хеш пароля BCrypt, выдача JWT через <see cref="JwtTokenService"/>.
 /// </summary>
-public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtTokenService jwtTokenService) : IAuthService
+public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtTokenService jwtTokenService, IJwtSessionService jwtSessionService) : IAuthService
 {
     public async Task<RegisterOutcome> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
@@ -62,7 +62,9 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
                 return (newId, createdAt);
             }, cancellationToken).ConfigureAwait(false);
 
-            var token = jwtTokenService.CreateAccessToken(userId, login);
+            var jti = Guid.NewGuid().ToString("N");
+            var token = jwtTokenService.CreateAccessToken(userId, login, jti);
+            await jwtSessionService.CreateAsync(jti, userId, login, token.ExpiresAtUtc, cancellationToken).ConfigureAwait(false);
             return RegisterOutcome.Created(ToResponse(token, userId, login, username, createdAt));
         }
         catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry || ex.Number == 1062)
@@ -109,7 +111,9 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
         if (!TryVerifyBcryptPassword(request.Password, row.Value.PasswordHash))
             return null;
 
-        var token = jwtTokenService.CreateAccessToken(row.Value.UserId, login);
+        var jti = Guid.NewGuid().ToString("N");
+        var token = jwtTokenService.CreateAccessToken(row.Value.UserId, login, jti);
+        await jwtSessionService.CreateAsync(jti, row.Value.UserId, login, token.ExpiresAtUtc, cancellationToken).ConfigureAwait(false);
         return ToResponse(token, row.Value.UserId, login, row.Value.Username, row.Value.UserCreatedAt);
     }
 

@@ -1,7 +1,7 @@
 ﻿namespace MINMs.Server.Options;
-    public class RedisOptions
-    {
+
+public class RedisOptions {
     public const string SectionName = "Redis";
-    public string Endpoint { get; set; } = string.Empty;
+    public string Endpoint { get; set; } = "localhost:6379";
 }
 

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using Minio;
 using MINMs.Server.Database;
 using MINMs.Server.Options;
@@ -39,6 +41,25 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2),
         };
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var sessionService = context.HttpContext.RequestServices.GetRequiredService<IJwtSessionService>();
+                var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+
+                if (string.IsNullOrWhiteSpace(jti))
+                {
+                    context.Fail("JWT has no jti claim.");
+                    return;
+                }
+
+                var isActive = await sessionService.IsActiveAsync(jti, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                if (!isActive)
+                    context.Fail("JWT session is revoked or expired.");
+            }
+        };
     });
 
 var minioSection = builder.Configuration.GetSection(MinioOptions.SectionName);
@@ -68,6 +89,8 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     var options = sp.GetRequiredService<IOptions<RedisOptions>>().Value;
     return ConnectionMultiplexer.Connect(options.Endpoint);
 });
+
+builder.Services.AddScoped<IJwtSessionService, RedisJwtSessionService>();
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();

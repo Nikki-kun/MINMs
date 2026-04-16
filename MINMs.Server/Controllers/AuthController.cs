@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MINMs.Server.Models.Dtos;
@@ -11,7 +12,7 @@ namespace MINMs.Server.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public sealed class AuthController(IAuthService authService, IUserSearchService userSearchService) : ControllerBase
+public sealed class AuthController(IAuthService authService, IUserSearchService userSearchService, IJwtSessionService jwtSessionService) : ControllerBase
 {
     /// <summary>Профиль по JWT (требуется заголовок Authorization: Bearer).</summary>
     [Authorize]
@@ -67,5 +68,19 @@ public sealed class AuthController(IAuthService authService, IUserSearchService 
             return Unauthorized(new { message = "Неверный логин или пароль." });
 
         return Ok(response);
+    }
+
+    /// <summary>Отзыв текущей JWT-сессии: удаляет ключ jti из Redis.</summary>
+    [Authorize]
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        var jti = User.FindFirstValue(JwtRegisteredClaimNames.Jti);
+        if (string.IsNullOrWhiteSpace(jti))
+            return Ok();
+
+        await jwtSessionService.InvalidateAsync(jti, cancellationToken).ConfigureAwait(false);
+        return Ok();
     }
 }

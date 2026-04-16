@@ -15,7 +15,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options)
 {
     private readonly JwtOptions _options = options.Value;
 
-    public AuthTokenResult CreateAccessToken(int userId, string login)
+    public AuthTokenResult CreateAccessToken(int userId, string login, string jti)
     {
         var expires = DateTime.UtcNow.AddMinutes(Math.Clamp(_options.ExpiresMinutes, 1, 10080));
         var keyBytes = Encoding.UTF8.GetBytes(_options.Key);
@@ -29,6 +29,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options)
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString(CultureInfo.InvariantCulture)),
             new(JwtRegisteredClaimNames.Name, login),
+            new(JwtRegisteredClaimNames.Jti, jti),
             new(ClaimTypes.NameIdentifier, userId.ToString(CultureInfo.InvariantCulture)),
             new(ClaimTypes.Name, login),
         };
@@ -42,8 +43,8 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options)
             signingCredentials: credentials);
 
         var encoded = new JwtSecurityTokenHandler().WriteToken(token);
-        return new AuthTokenResult(encoded, expires);
+        return new AuthTokenResult(encoded, expires, jti);
     }
 }
 
-public sealed record AuthTokenResult(string Token, DateTime ExpiresAtUtc);
+public sealed record AuthTokenResult(string Token, DateTime ExpiresAtUtc, string Jti);
