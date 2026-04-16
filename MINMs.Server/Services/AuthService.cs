@@ -1,4 +1,5 @@
 using BCrypt.Net;
+using System.Text;
 using MINMs.Server.Database;
 using MINMs.Server.Models.Dtos;
 using MySqlConnector;
@@ -26,7 +27,7 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
 
         for (var attempt = 0; attempt < RegisterLoginGenerateAttempts; attempt++)
         {
-            var login = GenerateLogin();
+            var login = GenerateLogin(username);
 
             try
             {
@@ -78,10 +79,45 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
         return RegisterOutcome.DuplicateLogin;
     }
 
-    private static string GenerateLogin()
+    private static string GenerateLogin(string username)
     {
-        // Формируем логин, который гарантированно валиден по правилам и почти всегда уникален.
+        var baseLogin = BuildBaseLogin(username);
+        var suffix = Guid.NewGuid().ToString("N")[..4];
+        var candidate = $"{baseLogin}_{suffix}";
+
+        if (UserLoginNormalizer.IsValid(candidate))
+            return candidate;
+
         return $"user_{Guid.NewGuid():N}"[..13];
+    }
+
+    private static string BuildBaseLogin(string username)
+    {
+        var normalized = username.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(capacity: Math.Min(normalized.Length, 24));
+        var previousUnderscore = false;
+
+        foreach (var ch in normalized)
+        {
+            if (char.IsLetterOrDigit(ch) && ch <= 127)
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+                previousUnderscore = false;
+                continue;
+            }
+
+            if (!previousUnderscore && sb.Length > 0)
+            {
+                sb.Append('_');
+                previousUnderscore = true;
+            }
+        }
+
+        var cleaned = sb.ToString().Trim('_');
+        if (cleaned.Length < 3)
+            return "user";
+
+        return cleaned.Length > 24 ? cleaned[..24] : cleaned;
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
