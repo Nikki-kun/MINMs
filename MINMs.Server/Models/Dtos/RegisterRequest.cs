@@ -6,7 +6,7 @@ namespace MINMs.Server.Models.Dtos;
 public sealed class RegisterRequest
 {
     [Required]
-    [StringLength(100, MinimumLength = 1)]
+    [StringLength(20, MinimumLength = 1)]
     public string Username { get; set; } = string.Empty;
 
     [Required]

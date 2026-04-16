@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using MINMs.Server.Database;
 using MINMs.Server.Models.Dtos;
+using MINMs.Server.Models.Internal;
 using MINMs.Server.Options;
 using MySqlConnector;
 using StackExchange.Redis;
@@ -18,6 +19,7 @@ public interface IUserSearchService
     int limit,
     CancellationToken cancellationToken = default);
     Task<UserPublicDto?> GetByUserLoginAsync(string login, CancellationToken cancellationToken = default);
+    Task<UserInternalData?> GetInternalByUserLoginAsync(string login, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -177,7 +179,7 @@ public sealed class UserSearchService(
 
     public async Task<UserPublicDto?> GetByUserLoginAsync(string login, CancellationToken cancellationToken = default)
     {
-        var cacheKey = $"minms:users:by-id:{login}";
+        var cacheKey = $"minms:users:by-login:{login}";
         var cached = await TryGetCachedAsync<UserPublicDto>(cacheKey).ConfigureAwait(false);
         if (cached is not null)
             return cached;
@@ -209,6 +211,52 @@ public sealed class UserSearchService(
             {
                 Login = reader.GetString(reader.GetOrdinal("login")),
                 Username = reader.GetString(reader.GetOrdinal("username")),
+                UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
+            };
+        }, cancellationToken).ConfigureAwait(false);
+
+        if (dto is not null)
+            await TrySetCachedAsync(cacheKey, dto).ConfigureAwait(false);
+
+        return dto;
+    }
+
+    public async Task<UserInternalData?> GetInternalByUserLoginAsync(string login, CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"minms:users:internal:by-login:{login}";
+        var cached = await TryGetCachedAsync<UserInternalData>(cacheKey).ConfigureAwait(false);
+        if (cached is not null)
+            return cached;
+
+        var dto = await connectionFactory.WithConnectionAsync(async connection =>
+        {
+            if (connection is not MySqlConnection mysql)
+                throw new InvalidOperationException("Expected MySqlConnection.");
+
+            await using var cmd = mysql.CreateCommand();
+            cmd.CommandText =
+                """
+                SELECT user_id, login, username, password_hash, user_created_at
+                FROM users
+                WHERE login = @login
+                LIMIT 1
+                """;
+            cmd.Parameters.AddWithValue("@login", login);
+
+            await using var reader = await cmd.ExecuteReaderAsync(
+                CommandBehavior.SingleRow,
+                cancellationToken).ConfigureAwait(false);
+
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                return null;
+
+            var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
+            return new UserInternalData
+            {
+                UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
+                Login = reader.GetString(reader.GetOrdinal("login")),
+                Username = reader.GetString(reader.GetOrdinal("username")),
+                PasswordHash = reader.GetString(reader.GetOrdinal("password_hash")),
                 UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
             };
         }, cancellationToken).ConfigureAwait(false);
