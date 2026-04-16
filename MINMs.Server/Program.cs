@@ -5,6 +5,7 @@ using Minio;
 using MINMs.Server.Database;
 using MINMs.Server.Options;
 using MINMs.Server.Services;
+using StackExchange.Redis;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,6 +56,14 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
         .Build();
 
     return client;
+});
+
+var redisSection = builder.Configuration.GetSection(RedisOptions.SectionName);
+builder.Services.Configure<RedisOptions>(redisSection);
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<RedisOptions>>().Value;
+    return ConnectionMultiplexer.Connect(options.Endpoint);
 });
 
 builder.Services.AddSingleton(sp =>
