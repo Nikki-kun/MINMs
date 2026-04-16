@@ -58,6 +58,9 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
     return client;
 });
 
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<MinioOptions>>().Value.BucketName);
+builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();
+
 var redisSection = builder.Configuration.GetSection(RedisOptions.SectionName);
 builder.Services.Configure<RedisOptions>(redisSection);
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -66,10 +69,6 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     return ConnectionMultiplexer.Connect(options.Endpoint);
 });
 
-builder.Services.AddSingleton(sp =>
-    sp.GetRequiredService<IOptions<MinioOptions>>().Value.BucketName);
-
-builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

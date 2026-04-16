@@ -5,8 +5,6 @@ CREATE TABLE `users` (
 	`username` VARCHAR(100) NOT NULL,
 	`login` VARCHAR(32) NOT NULL,
 	`password_hash` VARCHAR(255) NOT NULL,
-	`online` TINYINT(1) NOT NULL DEFAULT 0,
-	`user_last_seen` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`user_created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (`user_id`),
 	UNIQUE KEY `uk_users_login` (`login`)
