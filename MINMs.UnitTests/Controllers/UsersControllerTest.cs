@@ -25,8 +25,8 @@ public class UsersControllerTests
         var limit = 10;
         var expectedUsers = new List<UserPublicDto>
         {
-            new() { UserId = 1, Username = "john_doe" },
-            new() { UserId = 2, Username = "john_smith" }
+            new() { Username = "john_doe" },
+            new() { Username = "john_smith" }
         };
 
         _searchServiceMock
@@ -94,7 +94,7 @@ public class UsersControllerTests
         var query = "test";
         var expectedUsers = new List<UserPublicDto>
         {
-            new() { UserId = 1, Username = "test_user" }
+            new() { Username = "test_user" }
         };
 
         _searchServiceMock
@@ -120,8 +120,8 @@ public class UsersControllerTests
         var limit = 5;
         var expectedUsers = new List<UserPublicDto>
         {
-            new() { UserId = 1, Username = "admin1" },
-            new() { UserId = 2, Username = "admin2" }
+            new() { Username = "admin1" },
+            new() { Username = "admin2" }
         };
 
         _searchServiceMock
@@ -146,7 +146,7 @@ public class UsersControllerTests
         var query = "user";
         var limit = 50;
         var expectedUsers = Enumerable.Range(1, 50)
-            .Select(i => new UserPublicDto { UserId = i, Username = $"user{i}" })
+            .Select(i => new UserPublicDto { Username = $"user{i}" })
             .ToList();
 
         _searchServiceMock
@@ -208,7 +208,7 @@ public class UsersControllerTests
         var limit = 10;
         var expectedUsers = new List<UserPublicDto>
         {
-            new() { UserId = 1, Username = "user@domain" }
+            new() { Username = "user@domain" }
         };
 
         _searchServiceMock

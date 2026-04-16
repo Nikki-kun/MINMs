@@ -8,7 +8,6 @@ type AuthResponse = {
   accessToken: string
   expiresInSeconds: number
   tokenType: string
-  userId: number
   login: string
   username: string
   userCreatedAt: string
@@ -42,7 +41,6 @@ async function submit() {
       )
     }
     persistSession(data.accessToken, {
-      userId: data.userId,
       login: data.login,
       username: data.username,
       userCreatedAt: data.userCreatedAt,

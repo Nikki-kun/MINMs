@@ -4,7 +4,6 @@ export const AUTH_STORAGE_KEY = 'minms.accessToken'
 const STORAGE_KEY = AUTH_STORAGE_KEY
 
 export type AuthUser = {
-  userId: number
   login: string
   username: string
   userCreatedAt?: string
@@ -26,11 +25,10 @@ function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem('minms.user')
   if (!raw) return null
   try {
-    const u = JSON.parse(raw) as Partial<AuthUser> & { userId?: number; username?: string }
-    if (typeof u.userId !== 'number' || typeof u.username !== 'string') return null
+    const u = JSON.parse(raw) as Partial<AuthUser> & { username?: string; login?: string }
+    if (typeof u.username !== 'string' || typeof u.login !== 'string' || !u.login.trim()) return null
     return {
-      userId: u.userId,
-      login: typeof u.login === 'string' ? u.login : '',
+      login: u.login,
       username: u.username,
       userCreatedAt: u.userCreatedAt,
     }

@@ -8,7 +8,6 @@ const route = useRoute()
 const router = useRouter()
 
 export type UserPublic = {
-  userId: number
   login: string
   username: string
   userCreatedAt: string
@@ -164,7 +163,7 @@ function formatWhen(iso: string) {
         >
           <li
             v-for="u in results"
-            :key="u.userId"
+            :key="u.login"
             class="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.04]"
           >
             <div

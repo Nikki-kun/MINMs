@@ -17,6 +17,7 @@ public interface IUserSearchService
     string query,
     int limit,
     CancellationToken cancellationToken = default);
+    Task<UserPublicDto?> GetByUserLoginAsync(string login, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -65,7 +66,6 @@ public sealed class UserSearchService(
             var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
             return new UserPublicDto
             {
-                UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
                 Login = reader.GetString(reader.GetOrdinal("login")),
                 Username = reader.GetString(reader.GetOrdinal("username")),
                 UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
@@ -123,7 +123,6 @@ public sealed class UserSearchService(
             {
                 results.Add(new UserPublicDto
                 {
-                    UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Login = reader.GetString(reader.GetOrdinal("login")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     UserCreatedAt = reader.GetDateTime(reader.GetOrdinal("user_created_at")),
@@ -174,5 +173,49 @@ public sealed class UserSearchService(
         {
             // Redis-кэш не должен ломать основной сценарий поиска.
         }
+    }
+
+    public async Task<UserPublicDto?> GetByUserLoginAsync(string login, CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"minms:users:by-id:{login}";
+        var cached = await TryGetCachedAsync<UserPublicDto>(cacheKey).ConfigureAwait(false);
+        if (cached is not null)
+            return cached;
+
+        var dto = await connectionFactory.WithConnectionAsync(async connection =>
+        {
+            if (connection is not MySqlConnection mysql)
+                throw new InvalidOperationException("Expected MySqlConnection.");
+
+            await using var cmd = mysql.CreateCommand();
+            cmd.CommandText =
+                """
+                SELECT user_id, login, username, user_created_at
+                FROM users
+                WHERE login = @login
+                LIMIT 1
+                """;
+            cmd.Parameters.AddWithValue("@login", login);
+
+            await using var reader = await cmd.ExecuteReaderAsync(
+                CommandBehavior.SingleRow,
+                cancellationToken).ConfigureAwait(false);
+
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                return null;
+
+            var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
+            return new UserPublicDto
+            {
+                Login = reader.GetString(reader.GetOrdinal("login")),
+                Username = reader.GetString(reader.GetOrdinal("username")),
+                UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
+            };
+        }, cancellationToken).ConfigureAwait(false);
+
+        if (dto is not null)
+            await TrySetCachedAsync(cacheKey, dto).ConfigureAwait(false);
+
+        return dto;
     }
 }

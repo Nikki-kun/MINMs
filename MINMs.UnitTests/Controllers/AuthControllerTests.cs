@@ -35,7 +35,6 @@ public class AuthControllerTests
         {
             AccessToken = "jwt-token",
             ExpiresInSeconds = 3600,
-            UserId = 42,
             Login = "valid_login",
             Username = "Display Name",
             UserCreatedAt = createdAt,

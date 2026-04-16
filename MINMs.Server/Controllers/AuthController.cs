@@ -22,11 +22,11 @@ public sealed class AuthController(IAuthService authService, IUserSearchService 
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserPublicDto>> Me(CancellationToken cancellationToken)
     {
-        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (sub is null || !int.TryParse(sub, out var userId))
+        var login = User.FindFirstValue(ClaimTypes.Name);
+        if (string.IsNullOrWhiteSpace(login))
             return Unauthorized();
 
-        var profile = await userSearchService.GetByUserIdAsync(userId, cancellationToken).ConfigureAwait(false);
+        var profile = await userSearchService.GetByUserLoginAsync(login, cancellationToken).ConfigureAwait(false);
         return profile is null ? NotFound() : Ok(profile);
     }
 

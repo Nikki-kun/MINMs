@@ -69,7 +69,7 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
                 var jti = Guid.NewGuid().ToString("N");
                 var token = jwtTokenService.CreateAccessToken(userId, login, jti);
                 await jwtSessionService.CreateAsync(jti, userId, login, token.ExpiresAtUtc, cancellationToken).ConfigureAwait(false);
-                return RegisterOutcome.Created(ToResponse(token, userId, login, username, createdAt));
+                return RegisterOutcome.Created(ToResponse(token, login, username, createdAt));
             }
             catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry || ex.Number == 1062)
             {
@@ -162,7 +162,7 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
         var jti = Guid.NewGuid().ToString("N");
         var token = jwtTokenService.CreateAccessToken(row.Value.UserId, login, jti);
         await jwtSessionService.CreateAsync(jti, row.Value.UserId, login, token.ExpiresAtUtc, cancellationToken).ConfigureAwait(false);
-        return ToResponse(token, row.Value.UserId, login, row.Value.Username, row.Value.UserCreatedAt);
+        return ToResponse(token, login, row.Value.Username, row.Value.UserCreatedAt);
     }
 
     private static bool TryVerifyBcryptPassword(string password, string passwordHash)
@@ -180,12 +180,11 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
         }
     }
 
-    private static AuthResponse ToResponse(AuthTokenResult token, int userId, string login, string username, DateTime userCreatedAt) =>
+    private static AuthResponse ToResponse(AuthTokenResult token, string login, string username, DateTime userCreatedAt) =>
         new()
         {
             AccessToken = token.Token,
             ExpiresInSeconds = (int)Math.Max(1, (token.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds),
-            UserId = userId,
             Login = login,
             Username = username,
             UserCreatedAt = userCreatedAt,

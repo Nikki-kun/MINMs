@@ -12,13 +12,11 @@ onMounted(async () => {
   const res = await apiFetch('/api/auth/me')
   if (!res.ok) return
   const data = (await res.json()) as {
-    userId: number
     login: string
     username: string
     userCreatedAt: string
   }
   persistSession(t, {
-    userId: data.userId,
     login: data.login,
     username: data.username,
     userCreatedAt: data.userCreatedAt,
@@ -90,16 +88,6 @@ const createdLabel = computed(() => {
                       <div
                         class="grid gap-2.5 sm:grid-cols-1"
                       >
-                        <div
-                          class="rounded-xl bg-black/30 px-4 py-3 ring-1 ring-white/[0.06] sm:px-5 sm:py-3.5"
-                        >
-                          <p class="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                            Идентификатор
-                          </p>
-                          <p class="mt-1.5 font-mono text-sm text-zinc-200">
-                            {{ user?.userId ?? '—' }}
-                          </p>
-                        </div>
                         <div
                           class="rounded-xl bg-black/30 px-4 py-3 ring-1 ring-white/[0.06] sm:px-5 sm:py-3.5"
                         >
