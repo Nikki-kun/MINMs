@@ -1,25 +1,31 @@
+using Microsoft.AspNetCore.Identity.Data;
 using Minio;
 using Minio.DataModel.Args;
 using Minio.Exceptions;
+using MINMs.Server.Database;
 
 namespace MINMs.Server.Services;
 
 /// <summary>Операции с объектами в одном бакете MinIO.</summary>
 public interface IMinioStorageService
 {
-    Task<(bool Success, string? Error)> UploadFileAsync(IFormFile file, string objectName);
+    Task<(bool Success, string? Error)> UploadFileAsync(string login, IFormFile file, string objectName);
     Task<string> GetFileUrlAsync(string objectName, int expiryInSeconds = 3600);
-    Task<bool> DeleteFileAsync(string objectName);
+    Task<bool> DeleteFileAsync(string login, string objectName);
     Task<bool> FileExistsAsync(string objectName);
 }
 
 /// <inheritdoc />
-public sealed class MinioStorageService(IMinioClient minioClient, string bucketName) : IMinioStorageService
+public sealed class MinioStorageService(
+    IMinioClient minioClient, 
+    string bucketName, 
+    IUserSearchService userSearchService,
+    IDbConnectionFactory connectionFactory) : IMinioStorageService
 {
     private readonly IMinioClient _minioClient = minioClient;
     private readonly string _bucketName = bucketName;
 
-    public async Task<(bool Success, string? Error)> UploadFileAsync(IFormFile file, string objectName)
+    public async Task<(bool Success, string? Error)> UploadFileAsync(string login, IFormFile file, string objectName)
     {
         try
         {
@@ -67,7 +73,7 @@ public sealed class MinioStorageService(IMinioClient minioClient, string bucketN
         }
     }
 
-    public async Task<bool> DeleteFileAsync(string objectName)
+    public async Task<bool> DeleteFileAsync(string loging, string objectName)
     {
         try
         {

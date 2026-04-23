@@ -23,4 +23,17 @@ public sealed class UsersController(IUserSearchService userSearchService) : Cont
             .ConfigureAwait(false);
         return Ok(results);
     }
+
+    [HttpGet("{login}")]
+    [ProducesResponseType(typeof(UserPublicDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserPublicDto>> GetUserByLogin(string login, CancellationToken cancellationToken)
+    {
+        var result = await userSearchService.GetByUserLoginAsync(login, cancellationToken).ConfigureAwait(false);
+    
+        return result is null 
+            ? NotFound() 
+            : Ok(result);
+    }
 }

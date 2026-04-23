@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MINMs.Server.Models.Dtos;
 using MINMs.Server.Services;
+using System.Security.Claims;
 
 namespace MINMs.Server.Controllers;
 
@@ -17,6 +18,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
 
     /// <summary>Загружает файл в бакет; имя объекта генерируется на сервере.</summary>
     [HttpPost("upload")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(FileUploadResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
@@ -27,7 +29,11 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
 
         var objectName = $"{Guid.NewGuid()}_{file.FileName}";
 
-        var (success, error) = await _storageService.UploadFileAsync(file, objectName);
+        var login = User.FindFirstValue(ClaimTypes.Name);
+        if (string.IsNullOrWhiteSpace(login))
+            return Unauthorized();
+
+        var (success, error) = await _storageService.UploadFileAsync(login, file, objectName);
         if (!success)
             return StatusCode(500, error ?? "Error loading to the storage");
 
@@ -41,6 +47,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
     /// <summary>Редирект на временную presigned-ссылку для скачивания объекта.</summary>
     [HttpGet("download")]
     [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Download(string objectName)
     {
