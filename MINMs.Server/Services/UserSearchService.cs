@@ -99,7 +99,7 @@ public sealed class UserSearchService(
         if (cached is not null)
             return cached;
 
-        var pattern = "%" + EscapeLikePattern(term) + "%";
+        var pattern = EscapeLikePattern(term) + "%";
 
         var results = await connectionFactory.WithConnectionAsync(async connection =>
         {
@@ -108,12 +108,20 @@ public sealed class UserSearchService(
 
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
+            cmd.CommandText =
                 """
                 SELECT user_id, login, username, user_created_at
                 FROM users
-                WHERE login LIKE @pattern ESCAPE '\\'
-                   OR username LIKE @pattern ESCAPE '\\'
-                ORDER BY login
+                WHERE login LIKE CONCAT(@pattern, '%') ESCAPE '\\'
+                   OR username LIKE CONCAT(@pattern, '%') ESCAPE '\\'
+                ORDER BY 
+                    CASE 
+                        WHEN login = @pattern THEN 1
+                        WHEN login LIKE CONCAT(@pattern, '%') THEN 2
+                        WHEN username LIKE CONCAT(@pattern, '%') THEN 3
+                        ELSE 4
+                    END,
+                    login
                 LIMIT @limit
                 """;
             cmd.Parameters.AddWithValue("@pattern", pattern);
