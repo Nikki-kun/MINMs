@@ -14,7 +14,6 @@ CREATE TABLE `files` (
 	`file_id` INT NOT NULL AUTO_INCREMENT,
 	`owner_user_id` INT NULL,
 	`original_filename` VARCHAR(500) NOT NULL,
-	`remote_path` VARCHAR(2048) NOT NULL,
 	`size_bytes` BIGINT NULL,
 	`content_type` VARCHAR(255) NULL,
 	`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
