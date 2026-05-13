@@ -7,6 +7,7 @@ using Minio;
 using MINMs.Server.Database;
 using MINMs.Server.Options;
 using MINMs.Server.Services;
+using MINMs.Server.Hubs;
 using StackExchange.Redis;
 using System.Text;
 
@@ -17,6 +18,7 @@ builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSignalR();
 
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
 builder.Services.Configure<JwtOptions>(jwtSection);
@@ -42,25 +44,42 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2),
         };
-        
+
         options.Events = new JwtBearerEvents
+{
+    OnMessageReceived = context =>
+    {
+        var accessToken = context.Request.Query["access_token"];
+        var path = context.HttpContext.Request.Path;
+        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notification"))
         {
-            OnTokenValidated = async context =>
-            {
-                var sessionService = context.HttpContext.RequestServices.GetRequiredService<IJwtSessionService>();
-                var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+            context.Token = accessToken;
+        }
+        return Task.CompletedTask;
+    },
+    OnTokenValidated = async context =>
+    {
+        var sessionService = context.HttpContext.RequestServices.GetRequiredService<IJwtSessionService>();
+        var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
 
-                if (string.IsNullOrWhiteSpace(jti))
-                {
-                    context.Fail("JWT has no jti claim.");
-                    return;
-                }
+        if (string.IsNullOrWhiteSpace(jti))
+        {
+            context.Fail("JWT has no jti claim.");
+            return;
+        }
 
-                var isActive = await sessionService.IsActiveAsync(jti, context.HttpContext.RequestAborted).ConfigureAwait(false);
-                if (!isActive)
-                    context.Fail("JWT session is revoked or expired.");
-            }
-        };
+        var isActive = await sessionService.IsActiveAsync(jti, context.HttpContext.RequestAborted).ConfigureAwait(false);
+        if (!isActive)
+            context.Fail("JWT session is revoked or expired.");
+            
+        var userId = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value 
+                    ?? context.Principal?.FindFirst("nameid")?.Value;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            context.HttpContext.Items["UserId"] = userId;
+        }
+    }
+};
     });
 
 var minioSection = builder.Configuration.GetSection(MinioOptions.SectionName);
@@ -111,7 +130,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
+app.MapHub<NotificationHub>("/notification");
 app.MapFallbackToFile("/index.html");
 
 app.Run();

@@ -4,6 +4,7 @@ import { useAuth } from '@/composables/useAuth'
 import { LogIn, LogOut, MessagesSquare, Search, Send, Settings, UserCircle, Users } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import SignalRWrapper from '@/components/SignalRWrapper.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,6 +59,7 @@ function iconNavClass(path: string) {
 </script>
 
 <template>
+  <SignalRWrapper ref="signalR" />
   <div class="flex min-h-dvh flex-col">
     <header
       class="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/55 backdrop-blur-xl backdrop-saturate-150"

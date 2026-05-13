@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\minms.client\minms.Сlient.esproj">
+    <ProjectReference Include="..\MINMs.Client\MINMs.Сlient.esproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
