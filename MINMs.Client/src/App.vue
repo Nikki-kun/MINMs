@@ -16,10 +16,6 @@ async function handleLogoClick() {
   }
   
   const result = await signalR.value.sendMessage('Hello World')
-  
-  if (result) {
-    console.log('Сообщение отправлено успешно')
-  }
 }
 
 const route = useRoute()

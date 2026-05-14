@@ -56,10 +56,6 @@ export function useSignalR(hubUrl: string) {
         console.log('✅', message)
       })
 
-      connection.value.on('receiveMessage', (message: string) => {
-        console.log('📩 Message received:', message)
-      })
-
       connection.value.on('heartbeatResponse', () => {
         console.log('heartbeatResponse')
       })
@@ -154,8 +150,6 @@ export function useSignalR(hubUrl: string) {
 
     try {
       await connection.value.invoke('heartbeat')
-
-      console.log('💓 Heartbeat sent successfully')
     } catch (error) {
       console.error('❌ Heartbeat send failed:', error)
     }
@@ -174,9 +168,8 @@ export function useSignalR(hubUrl: string) {
 
       return true
     } catch (error) {
-      console.error('❌ Failed to send message:', error)
 
-      toast.error('Не удалось отправить сообщение')
+      console.error('❌ Failed to send message:', error)
 
       return false
     }
@@ -184,6 +177,7 @@ export function useSignalR(hubUrl: string) {
 
   const onReceiveMessage = (callback: (message: string) => void) => {
     if (!connection.value) {
+      console.log('error sub on receiv message')
       return
     }
 

@@ -16,16 +16,16 @@ const {
 watch(isConnected, (connected) => {
   if (connected) {
     console.log('✅ SignalR Connected')
-  } else {
-    console.log('❌ SignalR Disconnected')
-  }
-})
 
-onReceiveMessage((message: string) => {
+  onReceiveMessage((message: string) => {
     toast.success(`📨 ${message}`, {
       timeout: 5000,
       closeOnClick: true
     })
+  })
+  } else {
+    console.log('❌ SignalR Disconnected')
+  }
 })
 
 defineExpose({
