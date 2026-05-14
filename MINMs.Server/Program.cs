@@ -118,6 +118,14 @@ builder.Services.AddOpenApi();
 builder.Services.AddSignalR(options =>
 {
     options.DisableImplicitFromServicesParameters = true;
+}).AddStackExchangeRedis(options =>
+{
+    var redisConfig = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>();
+    
+    if (redisConfig == null || string.IsNullOrEmpty(redisConfig.Endpoint))
+        throw new InvalidOperationException("Redis configuration is missing or invalid.");
+    
+    options.Configuration.EndPoints.Add(redisConfig.Endpoint);
 });
 
 var app = builder.Build();
