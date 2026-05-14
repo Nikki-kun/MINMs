@@ -54,7 +54,6 @@ export default defineConfig({
             '/notification': {
                 target,
                 ws: true,
-                changeOrigin: true,
                 secure: false
             }
         },

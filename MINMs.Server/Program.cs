@@ -46,7 +46,7 @@ builder.Services
         };
 
         options.Events = new JwtBearerEvents
-{
+    {
     OnMessageReceived = context =>
     {
         var accessToken = context.Request.Query["access_token"];
@@ -115,6 +115,10 @@ builder.Services.AddScoped<IJwtSessionService, RedisJwtSessionService>();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR(options =>
+{
+    options.DisableImplicitFromServicesParameters = true;
+});
 
 var app = builder.Build();
 

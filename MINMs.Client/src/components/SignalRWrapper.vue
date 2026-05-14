@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useSignalR } from '@/api/client'
 import { useToast } from 'vue-toastification'
-import { onMounted, watch } from 'vue'
+import { watch, onUnmounted } from 'vue'
 
 const toast = useToast()
 const hubUrl = `${window.location.protocol}//${window.location.host}/notification`
@@ -13,27 +13,19 @@ const {
   sendMessage
 } = useSignalR(hubUrl)
 
-onReceiveMessage((user: string, message: string) => {
-  if (user !== 'System') {
-    toast.info(`📨 ${user}: ${message}`, {
-      timeout: 5000,
-      closeOnClick: true
-    })
-  } else {
-    toast.success(`💓 ${message}`, {
-      timeout: 2000
-    })
-  }
-  
-  console.log(`Message from ${user}: ${message}`)
-})
-
 watch(isConnected, (connected) => {
   if (connected) {
     console.log('✅ SignalR Connected')
   } else {
     console.log('❌ SignalR Disconnected')
   }
+})
+
+onReceiveMessage((message: string) => {
+    toast.success(`📨 ${message}`, {
+      timeout: 5000,
+      closeOnClick: true
+    })
 })
 
 defineExpose({
