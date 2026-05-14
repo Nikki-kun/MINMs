@@ -74,8 +74,6 @@ export function useSignalR(hubUrl: string) {
         console.warn('🔄 SignalR reconnecting:', error)
 
         isConnected.value = false
-
-        toast.warning('Потеря соединения с сервером...')
       })
 
       connection.value.onreconnected((connectionId) => {
