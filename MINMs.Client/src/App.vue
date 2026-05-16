@@ -5,18 +5,6 @@ import { LogIn, LogOut, MessagesSquare, Search, Send, Settings, UserCircle, User
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SignalRWrapper from '@/components/SignalRWrapper.vue'
-import { sendMessage } from '@microsoft/signalr/dist/esm/Utils'
-
-const signalR = ref<InstanceType<typeof SignalRWrapper> | null>(null)
-
-async function handleLogoClick() {
-  if (!signalR.value) {
-    console.log('SignalR компонент не инициализирован')
-    return
-  }
-  
-  const result = await signalR.value.sendMessage('Hello World')
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -80,7 +68,6 @@ function iconNavClass(path: string) {
         <RouterLink
           to="/"
           class="group flex shrink-0 items-center gap-2.5 text-zinc-100 no-underline"
-          @click.prevent="handleLogoClick"
         >
           <span
             class="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/90 to-teal-600/90 text-white shadow-lg shadow-emerald-900/40 ring-1 ring-white/20 transition group-hover:brightness-110"

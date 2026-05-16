@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace MINMs.Server.Hubs;
 
-public class NotificationHub : Hub
+public class MessageHub : Hub
 {
     public async Task SendMessageToCaller(string message)
     {

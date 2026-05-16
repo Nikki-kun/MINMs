@@ -142,7 +142,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<NotificationHub>("/notification");
+app.MapHub<MessageHub>("/notification");
 app.MapFallbackToFile("/index.html");
 
 app.Run();
