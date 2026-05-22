@@ -231,7 +231,6 @@ public sealed class ContactService(
         }
         catch (RedisException)
         {
-            // Ошибки Redis не должны ломать основной сценарий.
         }
     }
 
@@ -264,7 +263,6 @@ public sealed class ContactService(
         }
         catch (RedisException)
         {
-            // Redis-кэш не должен ломать основной сценарий.
         }
     }
 }

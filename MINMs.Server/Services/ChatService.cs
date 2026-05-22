@@ -32,9 +32,6 @@ public sealed class ChatService(
     private readonly TimeSpan _cacheTtl = TimeSpan.FromSeconds(Math.Clamp(redisOptions.Value.UserSearchCacheTtlSeconds, 5, 3600));
     private readonly IDatabase _redis = connectionMultiplexer.GetDatabase();
 
-    /// <summary>
-    /// Создаёт новый чат. Для личного чата (type=1) проверяет, что чат между этими пользователями ещё не существует.
-    /// </summary>
     public async Task<ChatDto?> CreateChatAsync(CreateChatRequest request, int creatorUserId, CancellationToken cancellationToken = default)
     {
         if (request.Type == ChatType.Personal && request.ParticipantIds?.Count != 1)
@@ -48,7 +45,6 @@ public sealed class ChatService(
             if (connection is not MySqlConnection mysql)
                 throw new InvalidOperationException("Expected MySqlConnection.");
 
-            // Для личных чатов проверяем существующий
             if (request.Type == ChatType.Personal)
             {
                 var otherUserId = request.ParticipantIds![0];
@@ -61,7 +57,6 @@ public sealed class ChatService(
 
             try
             {
-                // Создаём чат
                 await using var insertChatCmd = mysql.CreateCommand();
                 insertChatCmd.Transaction = transaction;
                 insertChatCmd.CommandText = """
@@ -73,10 +68,8 @@ public sealed class ChatService(
 
                 var chatId = Convert.ToInt32(await insertChatCmd.ExecuteScalarAsync(cancellationToken));
 
-                // Добавляем создателя
                 await AddParticipantInternalAsync(mysql, transaction, chatId, creatorUserId, ParticipantRole.Owner, cancellationToken);
 
-                // Добавляем остальных участников
                 if (request.ParticipantIds != null)
                 {
                     foreach (var participantId in request.ParticipantIds.Distinct())
@@ -90,7 +83,6 @@ public sealed class ChatService(
 
                 await transaction.CommitAsync(cancellationToken);
 
-                // Инвалидируем кэши после создания
                 await InvalidateUserChatsCacheAsync(creatorUserId);
                 if (request.ParticipantIds != null)
                 {
@@ -159,7 +151,6 @@ public sealed class ChatService(
     /// </summary>
     public async Task<bool> DeleteChatAsync(int chatId, int requesterUserId, CancellationToken cancellationToken = default)
     {
-        // Проверяем права: владелец чата может удалить (или любой участник? пусть владелец)
         var isOwner = await IsChatOwnerAsync(chatId, requesterUserId, cancellationToken);
         if (!isOwner)
             return false;
@@ -203,7 +194,6 @@ public sealed class ChatService(
             if (connection is not MySqlConnection mysql)
                 throw new InvalidOperationException("Expected MySqlConnection.");
 
-            // Проверяем, что пользователь участник чата
             await using var checkCmd = mysql.CreateCommand();
             checkCmd.CommandText = "SELECT 1 FROM chat_participants WHERE chat_id = @chatId AND user_id = @userId AND left_at IS NULL";
             checkCmd.Parameters.AddWithValue("@chatId", chatId);
@@ -213,7 +203,6 @@ public sealed class ChatService(
             if (!isParticipant)
                 return null;
 
-            // Получаем информацию о чате
             await using var chatCmd = mysql.CreateCommand();
             chatCmd.CommandText = """
                 SELECT chat_id, type, chat_created_at
@@ -236,7 +225,6 @@ public sealed class ChatService(
 
             await reader.CloseAsync();
 
-            // Получаем участников
             await using var participantsCmd = mysql.CreateCommand();
             participantsCmd.CommandText = """
                 SELECT cp.user_id, cp.participant_role, cp.joined_at,
@@ -271,9 +259,6 @@ public sealed class ChatService(
         return dto;
     }
 
-    /// <summary>
-    /// Получает список чатов пользователя (превью с последним сообщением).
-    /// </summary>
     public async Task<IReadOnlyList<ChatPreviewDto>> GetUserChatsAsync(int userId, CancellationToken cancellationToken = default)
     {
         var cacheKey = $"minms:user:{userId}:chats";
@@ -335,7 +320,6 @@ public sealed class ChatService(
 
     public async Task<bool> AddParticipantAsync(int chatId, int ownerUserId, int targetUserId, CancellationToken cancellationToken = default)
     {
-        // Только владелец может добавлять участников
         var isOwner = await IsChatOwnerAsync(chatId, ownerUserId, cancellationToken);
         if (!isOwner)
             return false;
@@ -380,7 +364,7 @@ public sealed class ChatService(
             return false;
 
         if (ownerUserId == targetUserId)
-            return false; // владелец не может удалить сам себя, используй LeaveChatAsync
+            return false;
 
         var result = await connectionFactory.WithConnectionAsync(async connection =>
         {
@@ -414,13 +398,11 @@ public sealed class ChatService(
         if (chat is null)
             return false;
 
-        // Для личного чата — удаляем полностью
         if (chat.Type == ChatType.Personal)
         {
             return await DeleteChatAsync(chatId, userId, cancellationToken);
         }
 
-        // Проверяем, не последний ли владелец уходит
         var ownerCount = await GetChatOwnerCountAsync(chatId, cancellationToken);
         var isOwner = await IsChatOwnerAsync(chatId, userId, cancellationToken);
 
@@ -433,7 +415,6 @@ public sealed class ChatService(
 
             try
             {
-                // Помечаем как покинувшего
                 await using var cmd = mysql.CreateCommand();
                 cmd.Transaction = transaction;
                 cmd.CommandText = """
@@ -445,7 +426,6 @@ public sealed class ChatService(
                 cmd.Parameters.AddWithValue("@userId", userId);
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-                // Если уходит владелец и есть другие участники — назначаем нового владельца
                 if (isOwner && ownerCount == 1)
                 {
                     await using var newOwnerCmd = mysql.CreateCommand();
@@ -480,7 +460,6 @@ public sealed class ChatService(
         return result;
     }
 
-    // Вспомогательные методы
     private async Task<bool> IsChatOwnerAsync(int chatId, int userId, CancellationToken cancellationToken)
     {
         return await connectionFactory.WithConnectionAsync(async connection =>

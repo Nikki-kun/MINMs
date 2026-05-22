@@ -123,7 +123,6 @@ public class MessageHub : Hub
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"chat_{chatId}");
 
-            // Также получаем информацию о чате и отправляем её клиенту
             var chat = await _chatService.GetChatByIdAsync(chatId, userId.Value);
             await Clients.Caller.SendAsync("joinedChat", new { chatId, chat });
         }
@@ -141,7 +140,6 @@ public class MessageHub : Hub
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"chat_{chatId}");
 
-        // Также вызываем метод LeaveChat в сервисе
         await _chatService.LeaveChatAsync(chatId, userId.Value);
         await Clients.Caller.SendAsync("leftChat", chatId);
     }
@@ -183,7 +181,6 @@ public class MessageHub : Hub
             return;
         }
 
-        // Получаем ID участников по их логинам
         var participantIds = new List<int>();
         foreach (var login in participantLogins.Distinct())
         {
@@ -212,13 +209,11 @@ public class MessageHub : Hub
             return;
         }
 
-        // Отправляем initial message если указан
         if (!string.IsNullOrWhiteSpace(initialMessage))
         {
             await SendMessageToChat(chat.ChatId, initialMessage);
         }
 
-        // Присоединяем создателя к группе
         await Groups.AddToGroupAsync(Context.ConnectionId, $"chat_{chat.ChatId}");
 
         await Clients.Caller.SendAsync("groupChatCreated", chat);
@@ -244,7 +239,6 @@ public class MessageHub : Hub
         if (result)
         {
             await Clients.Caller.SendAsync("participantAdded", new { chatId, userLogin });
-            // Уведомляем добавленного пользователя (если он онлайн)
             await Clients.User(targetUser.UserId.ToString()).SendAsync("addedToChat", chatId);
         }
         else
@@ -273,9 +267,7 @@ public class MessageHub : Hub
         if (result)
         {
             await Clients.Caller.SendAsync("participantRemoved", new { chatId, userLogin });
-            // Уведомляем удаленного пользователя
             await Clients.User(targetUser.UserId.ToString()).SendAsync("removedFromChat", chatId);
-            // Удаляем его из SignalR группы
             var connections = await GetUserConnections(targetUser.UserId.ToString());
             foreach (var connectionId in connections)
             {
@@ -321,7 +313,6 @@ public class MessageHub : Hub
         var result = await _chatService.DeleteChatAsync(chatId, userId.Value);
         if (result)
         {
-            // Удаляем всех участников из SignalR группы
             await Clients.Group($"chat_{chatId}").SendAsync("chatDeleted", chatId);
         }
         else
@@ -433,13 +424,6 @@ public class MessageHub : Hub
 
     private async Task<IReadOnlyList<string>> GetUserConnections(string userId)
     {
-        // Этот метод требует хранения connectionId для каждого пользователя
-        // Простая реализация через хранение в ConcurrentDictionary или через SignalR Groups
-        // В SignalR есть встроенный механизм - можно использовать User вместо Groups
-        // Но для точной работы нужно хранить соответствие в Redis или другом хранилище
-
-        // Простая альтернатива - возвращаем текущий connectionId
-        // Для production нужно реализовать хранение connectionId пользователей
         return new List<string> { Context.ConnectionId };
     }
 }
