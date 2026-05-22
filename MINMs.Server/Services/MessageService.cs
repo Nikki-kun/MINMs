@@ -164,7 +164,7 @@ public sealed class MessageService(
                 FROM messages m
                 JOIN users u ON u.user_id = m.sender_id
                 WHERE m.chat_id = @chatId
-                ORDER BY m.message_created_at DESC, m.message_id DESC
+                ORDER BY m.message_created_at DESC, m.message_id ASC
                 LIMIT @limit OFFSET @offset
                 """;
             cmd.Parameters.AddWithValue("@chatId", chatId);

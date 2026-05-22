@@ -44,6 +44,7 @@ const isLoadingMessages = ref(false);
 const isSending = ref(false);
 const searchQuery = ref("");
 const showMobileChat = ref(false);
+const pendingMessages = ref<Map<number, number>>(new Map()); // Map временный ID -> реальный ID
 
 // Map для быстрого поиска chatId по логину контакта
 const contactChatMap = ref<Map<string, number>>(new Map());
@@ -80,8 +81,6 @@ function onUserChats(chatsList: ChatPreview[]) {
   for (const chat of chatsList) {
     if (chat.type === 1) {
       // Personal chat
-      // Для личного чата нужно определить логин другого участника
-      // Для этого нужно получить информацию о чате
       signalR.getChatInfo(chat.chatId);
     }
   }
@@ -172,7 +171,7 @@ async function sendMessage() {
   newMessage.value = "";
 
   // Временное сообщение для оптимистичного обновления UI
-  const tempId = -Date.now();
+  const tempId = Date.now(); // Используем положительный timestamp для уникальности
   const tempMessage: ChatMessage = {
     messageId: tempId,
     senderId: parseInt(user.value?.userId || "0"),
@@ -181,15 +180,17 @@ async function sendMessage() {
     chatId: selectedChat.value.chatId || tempId,
     content: messageContent,
     messageCreatedAt: new Date().toISOString(),
-    status: 0,
+    status: 0, // Отправляется
     type: 0,
   };
   messages.value.push(tempMessage);
   scrollToBottom();
 
   try {
+    let realMessageId: number | null = null;
+
     if (selectedChat.value.chatId === null) {
-      // Новый чат - отправляем через SendMessageToUser, который создаст чат на сервере
+      // Новый чат - отправляем через SendMessageToUser
       console.log(`📤 Creating new chat with ${selectedChat.value.contactLogin}`);
       const success = await signalR.sendMessageToUser(
         selectedChat.value.contactLogin,
@@ -200,27 +201,35 @@ async function sendMessage() {
         throw new Error("Failed to send message");
       }
 
-      // Ждем, когда сервер создаст чат и вернет информацию через onChatInfo
-      // Чат будет создан асинхронно, и onChatInfo обновит selectedChat.chatId
-      console.log("⏳ Waiting for chat creation...");
-
-      // Даем время на создание чата (максимум 2 секунды)
+      // Ждем создания чата
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Проверяем, обновился ли chatId
       if (selectedChat.value.chatId === null) {
-        // Если все еще null, запрашиваем список чатов для обновления мапы
         await signalR.getUserChats();
       }
     } else {
-      // Существующий чат
-      await signalR.sendMessageToChat(selectedChat.value.chatId, messageContent);
+      // Существующий чат - отправляем и получаем ID сообщения
+      realMessageId = await signalR.sendMessageToChat(selectedChat.value.chatId, messageContent);
+
+      // Если получили реальный ID, обновляем временное сообщение
+      if (realMessageId && realMessageId !== tempId) {
+        const tempIndex = messages.value.findIndex((m) => m.messageId === tempId);
+        if (tempIndex !== -1) {
+          messages.value[tempIndex].messageId = realMessageId;
+          messages.value[tempIndex].status = 1; // Доставлено
+          // Сохраняем соответствие для возможного обновления через SignalR
+          pendingMessages.value.set(tempId, realMessageId);
+        }
+      }
     }
   } catch (error) {
     console.error("Failed to send message:", error);
     toast.error("Не удалось отправить сообщение");
     // Удаляем временное сообщение при ошибке
-    messages.value = messages.value.filter((m) => m.messageId !== tempId);
+    const tempIndex = messages.value.findIndex((m) => m.messageId === tempId);
+    if (tempIndex !== -1) {
+      messages.value.splice(tempIndex, 1);
+    }
   } finally {
     isSending.value = false;
   }
@@ -242,18 +251,40 @@ function onNewMessage(message: any) {
 
   // Проверяем, относится ли сообщение к текущему чату
   if (selectedChat.value && message.chatId === selectedChat.value.chatId) {
-    // Проверяем дубликаты
-    const exists = messages.value.some((m) => m.messageId === message.messageId);
-    if (!exists) {
+    const messageId = message.messageId;
+    const senderLogin = message.senderLogin;
+
+    // Проверяем, не является ли это сообщение уже существующим (включая временные)
+    const existingIndex = messages.value.findIndex(
+      (m) =>
+        m.messageId === messageId ||
+        (m.messageId < 0 &&
+          m.content === message.content &&
+          Math.abs(new Date(m.messageCreatedAt).getTime() - new Date(message.createdAt).getTime()) <
+            2000),
+    );
+
+    if (existingIndex !== -1) {
+      // Обновляем существующее сообщение (меняем статус или ID)
+      console.log(`🔄 Updating existing message ${messageId}`);
+      messages.value[existingIndex] = {
+        ...messages.value[existingIndex],
+        messageId: messageId,
+        status: 1, // Доставлено
+      };
+      // Обновляем массив для реактивности
+      messages.value = [...messages.value];
+    } else if (senderLogin !== user.value?.login) {
+      // Новое сообщение от собеседника
       const newMsg: ChatMessage = {
-        messageId: message.messageId || Date.now(),
+        messageId: messageId || Date.now(),
         senderId: message.senderId,
         senderLogin: message.senderLogin,
         senderUsername: message.senderUsername,
         chatId: message.chatId,
         content: message.content || message.message,
         messageCreatedAt: message.createdAt || message.messageCreatedAt || new Date().toISOString(),
-        status: 1,
+        status: 1, // Доставлено
         type: message.type || 0,
       };
       messages.value.push(newMsg);
@@ -267,7 +298,11 @@ function onNewMessage(message: any) {
 
 function onChatMessages(messagesList: any[]) {
   console.log("📚 Chat messages history:", messagesList.length);
-  messages.value = messagesList.map((msg) => ({
+  // Сортируем сообщения по возрастанию даты (старые -> новые)
+  const sortedMessages = [...messagesList].sort(
+    (a, b) => new Date(a.messageCreatedAt).getTime() - new Date(b.messageCreatedAt).getTime(),
+  );
+  messages.value = sortedMessages.map((msg) => ({
     messageId: msg.messageId,
     senderId: msg.senderId,
     senderLogin: msg.senderLogin,
@@ -275,8 +310,8 @@ function onChatMessages(messagesList: any[]) {
     chatId: msg.chatId,
     content: msg.content,
     messageCreatedAt: msg.messageCreatedAt,
-    status: msg.status,
-    type: msg.type,
+    status: msg.status || 1,
+    type: msg.type || 0,
   }));
   isLoadingMessages.value = false;
   nextTick(() => scrollToBottom());
@@ -298,7 +333,7 @@ function onConnectionChange(connected: boolean) {
       signalR.getChatMessages(selectedChat.value.chatId, 0, 50);
     }
   } else {
-    toast.warning("Потеряно соединение с сервером");
+    //toast.warning("Потеряно соединение с сервером");
   }
 }
 
@@ -393,11 +428,13 @@ watch(isAuthenticated, async (authenticated) => {
     selectedChat.value = null;
     messages.value = [];
     contactChatMap.value.clear();
+    pendingMessages.value.clear();
   }
 });
 </script>
 
 <template>
+  <!-- template часть остается без изменений -->
   <div
     class="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950"
   >
