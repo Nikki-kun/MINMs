@@ -17,6 +17,8 @@ builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
 builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IContactService, ContactService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSignalR();
 
@@ -46,40 +48,40 @@ builder.Services
         };
 
         options.Events = new JwtBearerEvents
-    {
-    OnMessageReceived = context =>
-    {
-        var accessToken = context.Request.Query["access_token"];
-        var path = context.HttpContext.Request.Path;
-        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notification"))
         {
-            context.Token = accessToken;
-        }
-        return Task.CompletedTask;
-    },
-    OnTokenValidated = async context =>
-    {
-        var sessionService = context.HttpContext.RequestServices.GetRequiredService<IJwtSessionService>();
-        var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notification"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = async context =>
+            {
+                var sessionService = context.HttpContext.RequestServices.GetRequiredService<IJwtSessionService>();
+                var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
 
-        if (string.IsNullOrWhiteSpace(jti))
-        {
-            context.Fail("JWT has no jti claim.");
-            return;
-        }
+                if (string.IsNullOrWhiteSpace(jti))
+                {
+                    context.Fail("JWT has no jti claim.");
+                    return;
+                }
 
-        var isActive = await sessionService.IsActiveAsync(jti, context.HttpContext.RequestAborted).ConfigureAwait(false);
-        if (!isActive)
-            context.Fail("JWT session is revoked or expired.");
-            
-        var userId = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value 
-                    ?? context.Principal?.FindFirst("nameid")?.Value;
-        if (!string.IsNullOrEmpty(userId))
-        {
-            context.HttpContext.Items["UserId"] = userId;
-        }
-    }
-};
+                var isActive = await sessionService.IsActiveAsync(jti, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                if (!isActive)
+                    context.Fail("JWT session is revoked or expired.");
+
+                var userId = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                            ?? context.Principal?.FindFirst("nameid")?.Value;
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    context.HttpContext.Items["UserId"] = userId;
+                }
+            }
+        };
     });
 
 var minioSection = builder.Configuration.GetSection(MinioOptions.SectionName);
@@ -121,10 +123,10 @@ builder.Services.AddSignalR(options =>
 }).AddStackExchangeRedis(options =>
 {
     var redisConfig = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>();
-    
+
     if (redisConfig == null || string.IsNullOrEmpty(redisConfig.Endpoint))
         throw new InvalidOperationException("Redis configuration is missing or invalid.");
-    
+
     options.Configuration.EndPoints.Add(redisConfig.Endpoint);
 });
 
