@@ -1,60 +1,70 @@
 <script setup lang="ts">
-import { apiFetch } from '@/api/client'
-import { useAuth } from '@/composables/useAuth'
-import { LogIn, LogOut, MessagesSquare, Search, Send, Settings, UserCircle, Users } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import SignalRWrapper from '@/components/SignalRWrapper.vue'
+import { apiFetch } from "@/api/client";
+import { useAuth } from "@/composables/useAuth";
+import {
+  LogIn,
+  LogOut,
+  MessagesSquare,
+  Search,
+  Send,
+  Settings,
+  UserCircle,
+  Users,
+} from "lucide-vue-next";
+import { computed, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import SignalRWrapper from "@/components/SignalRWrapper.vue";
+import FileList from "@/components/FileList.vue";
 
-const route = useRoute()
-const router = useRouter()
-const { isAuthenticated, user, clearSession } = useAuth()
-const isHome = computed(() => route.path === '/')
+const route = useRoute();
+const router = useRouter();
+const { isAuthenticated, user, clearSession } = useAuth();
+const isHome = computed(() => route.path === "/");
 
-const searchPeople = ref('')
+const searchPeople = ref("");
 
 watch(
   () => ({ path: route.path, q: route.query.q }),
   ({ path, q }) => {
-    if (path !== '/users') return
-    searchPeople.value = typeof q === 'string' ? q : ''
+    if (path !== "/users") return;
+    searchPeople.value = typeof q === "string" ? q : "";
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 
 async function logout() {
   try {
-    await apiFetch('/api/auth/logout', { method: 'POST' })
+    await apiFetch("/api/auth/logout", { method: "POST" });
   } finally {
-    clearSession()
-    await router.push('/login')
+    clearSession();
+    await router.push("/login");
   }
 }
 
 function goPeopleSearch() {
-  const q = searchPeople.value.trim()
-  void router.push({ path: '/users', query: q ? { q } : {} })
+  const q = searchPeople.value.trim();
+  void router.push({ path: "/users", query: q ? { q } : {} });
 }
 
 const navLinkClass =
-  'rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 ring-1 ring-transparent transition-colors hover:bg-white/10 hover:text-white'
-const navActiveClass = 'bg-white/15 text-white shadow-sm ring-white/20'
+  "rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 ring-1 ring-transparent transition-colors hover:bg-white/10 hover:text-white";
+const navActiveClass = "bg-white/15 text-white shadow-sm ring-white/20";
 
 function navClass(path: string) {
-  return [navLinkClass, route.path === path ? navActiveClass : '']
+  return [navLinkClass, route.path === path ? navActiveClass : ""];
 }
 
 function authEntryClass() {
-  const onAuthPages = route.path === '/login' || route.path === '/register'
-  return [navLinkClass, onAuthPages ? navActiveClass : '', 'inline-flex items-center gap-1.5']
+  const onAuthPages = route.path === "/login" || route.path === "/register";
+  return [navLinkClass, onAuthPages ? navActiveClass : "", "inline-flex items-center gap-1.5"];
 }
 
 const iconBtnClass =
-  'inline-flex size-10 items-center justify-center rounded-lg text-zinc-300 ring-1 ring-transparent transition-colors hover:bg-white/10 hover:text-white'
-const iconBtnActiveClass = 'bg-white/15 text-white ring-white/20'
+  "inline-flex size-10 items-center justify-center rounded-lg text-zinc-300 ring-1 ring-transparent transition-colors hover:bg-white/10 hover:text-white";
+const iconBtnActiveClass = "bg-white/15 text-white ring-white/20";
 
 function iconNavClass(path: string) {
-  return [iconBtnClass, route.path === path ? iconBtnActiveClass : '']
+  return [iconBtnClass, route.path === path ? iconBtnActiveClass : ""];
 }
 </script>
 
@@ -64,7 +74,9 @@ function iconNavClass(path: string) {
     <header
       class="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/55 backdrop-blur-xl backdrop-saturate-150"
     >
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3 sm:gap-4 sm:py-4">
+      <div
+        class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3 sm:gap-4 sm:py-4"
+      >
         <RouterLink
           to="/"
           class="group flex shrink-0 items-center gap-2.5 text-zinc-100 no-underline"
@@ -125,7 +137,10 @@ function iconNavClass(path: string) {
                 </RouterLink>
                 <RouterLink
                   to="/settings/profile"
-                  :class="[iconBtnClass, route.path.startsWith('/settings') ? iconBtnActiveClass : '']"
+                  :class="[
+                    iconBtnClass,
+                    route.path.startsWith('/settings') ? iconBtnActiveClass : '',
+                  ]"
                   title="Настройки"
                   aria-label="Настройки"
                 >
@@ -147,12 +162,8 @@ function iconNavClass(path: string) {
 
         <template v-else>
           <nav class="flex flex-wrap items-center gap-1 sm:gap-2" aria-label="Основная навигация">
-            <RouterLink to="/" :class="navClass('/')">
-              Главная
-            </RouterLink>
-            <RouterLink to="/users" :class="navClass('/users')">
-              Люди
-            </RouterLink>
+            <RouterLink to="/" :class="navClass('/')"> Главная </RouterLink>
+            <RouterLink to="/users" :class="navClass('/users')"> Люди </RouterLink>
             <RouterLink
               to="/login"
               :class="authEntryClass()"
@@ -167,10 +178,7 @@ function iconNavClass(path: string) {
       </div>
     </header>
 
-    <main
-      class="flex-1"
-      :class="isHome ? '' : 'bg-zinc-950'"
-    >
+    <main class="flex-1" :class="isHome ? '' : 'bg-zinc-950'">
       <RouterView />
     </main>
   </div>

@@ -33,7 +33,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
         if (string.IsNullOrWhiteSpace(login))
             return Unauthorized();
 
-        var (success, error) = await _storageService.UploadFileAsync(login, file, objectName);
+        var (success, error, fileId) = await _storageService.UploadFileAsync(login, file, objectName, file.FileName);
         if (!success)
             return StatusCode(500, error ?? "Error loading to the storage");
 
@@ -41,6 +41,7 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
         {
             Message = "The file is uploaded",
             ObjectName = objectName,
+            FileId = fileId
         });
     }
 
@@ -56,5 +57,37 @@ public class FilesController(IMinioStorageService storageService) : ControllerBa
             return NotFound("The file was not found");
 
         return Redirect(url);
+    }
+
+    /// <summary>Удаляет файл по ID.</summary>
+    [HttpDelete("{fileId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Delete(int fileId, [FromQuery] string objectName)
+    {
+        var login = User.FindFirstValue(ClaimTypes.Name);
+        if (string.IsNullOrWhiteSpace(login))
+            return Unauthorized();
+
+        var success = await _storageService.DeleteFileAsync(login, objectName, fileId);
+        if (!success)
+            return StatusCode(500, "Error deleting the file");
+
+        return Ok(new { Message = "The file is deleted" });
+    }
+
+    [HttpGet("user/files")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(List<FileResponseDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUserFiles()
+    {
+        var login = User.FindFirstValue(ClaimTypes.Name);
+        if (string.IsNullOrWhiteSpace(login))
+            return Unauthorized();
+
+        var files = await _storageService.GetUserFilesAsync(login);
+        return Ok(files);
     }
 }

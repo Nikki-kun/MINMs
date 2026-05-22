@@ -110,12 +110,12 @@ public sealed class UserSearchService(
             cmd.CommandText =
             cmd.CommandText =
                 """
-                SELECT user_id, login, username, user_created_at
+                SELECT user_id, login, username, avatar_id, user_created_at
                 FROM users
                 WHERE login LIKE CONCAT(@pattern, '%') ESCAPE '\\'
                    OR username LIKE CONCAT(@pattern, '%') ESCAPE '\\'
-                ORDER BY 
-                    CASE 
+                ORDER BY
+                    CASE
                         WHEN login = @pattern THEN 1
                         WHEN login LIKE CONCAT(@pattern, '%') THEN 2
                         WHEN username LIKE CONCAT(@pattern, '%') THEN 3
@@ -131,9 +131,11 @@ public sealed class UserSearchService(
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
+                var avatarIdOrdinal = reader.GetOrdinal("avatar_id");
                 results.Add(new UserPublicDto
                 {
                     Login = reader.GetString(reader.GetOrdinal("login")),
+                    AvatarId = reader.IsDBNull(avatarIdOrdinal) ? null : reader.GetInt32(avatarIdOrdinal),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     UserCreatedAt = reader.GetDateTime(reader.GetOrdinal("user_created_at")),
                 });
@@ -200,7 +202,7 @@ public sealed class UserSearchService(
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
                 """
-                SELECT user_id, login, username, user_created_at
+                SELECT user_id, login, username, avatar_id, user_created_at
                 FROM users
                 WHERE login = @login
                 LIMIT 1
@@ -215,9 +217,11 @@ public sealed class UserSearchService(
                 return null;
 
             var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
+            var avatarIdOrdinal = reader.GetOrdinal("avatar_id");
             return new UserPublicDto
             {
                 Login = reader.GetString(reader.GetOrdinal("login")),
+                AvatarId = reader.IsDBNull(avatarIdOrdinal) ? null : reader.GetInt32(avatarIdOrdinal),
                 Username = reader.GetString(reader.GetOrdinal("username")),
                 UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
             };
@@ -244,7 +248,7 @@ public sealed class UserSearchService(
             await using var cmd = mysql.CreateCommand();
             cmd.CommandText =
                 """
-                SELECT user_id, login, username, password_hash, user_created_at
+                SELECT user_id, login, username, avatar_id, password_hash, user_created_at
                 FROM users
                 WHERE login = @login
                 LIMIT 1
@@ -259,10 +263,12 @@ public sealed class UserSearchService(
                 return null;
 
             var createdAt = reader.GetDateTime(reader.GetOrdinal("user_created_at"));
+            var avatarIdOrdinal = reader.GetOrdinal("avatar_id");
             return new UserInternalData
             {
                 UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
                 Login = reader.GetString(reader.GetOrdinal("login")),
+                AvatarId = reader.IsDBNull(avatarIdOrdinal) ? null : reader.GetInt32(avatarIdOrdinal),
                 Username = reader.GetString(reader.GetOrdinal("username")),
                 PasswordHash = reader.GetString(reader.GetOrdinal("password_hash")),
                 UserCreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Utc),
