@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.SignalR;
 using MINMs.Server.Services;
 using MINMs.Server.Models.Dtos;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MINMs.Server.Hubs;
 
+[Authorize]
 public class MessageHub : Hub
 {
     private readonly IMessageService _messageService;

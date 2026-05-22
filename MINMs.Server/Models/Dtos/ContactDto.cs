@@ -1,4 +1,5 @@
-﻿namespace MINMs.Server.Models.Dtos;
+﻿using System.ComponentModel.DataAnnotations;
+namespace MINMs.Server.Models.Dtos;
 
 public sealed class ContactPublicDto
 {

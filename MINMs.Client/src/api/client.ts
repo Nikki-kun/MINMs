@@ -84,7 +84,6 @@ export const contactsApi = {
   },
 };
 
-// Исправленный SignalR хук
 export function useSignalR(hubUrl: string) {
   const connection = ref<signalR.HubConnection | null>(null);
   const isConnected = ref(false);
@@ -96,7 +95,6 @@ export function useSignalR(hubUrl: string) {
   const { token } = useAuth();
   const toast = useToast();
 
-  // Коллбеки
   let messageCallbacks: ((message: any) => void)[] = [];
   let chatMessagesCallbacks: ((messages: any[]) => void)[] = [];
   let errorCallbacks: ((error: string) => void)[] = [];
@@ -113,10 +111,23 @@ export function useSignalR(hubUrl: string) {
       isConnecting.value = true;
 
       console.log("🔄 Connecting to SignalR hub at:", hubUrl);
+      const accessToken = getAccessToken();
+      if (!accessToken) {
+        console.error("❌ No access token available");
+        toast.error("Необходимо авторизоваться");
+        isConnecting.value = false;
+        return;
+      }
+
+      console.log("🔄 Connecting to SignalR hub with auth token");
 
       connection.value = new signalR.HubConnectionBuilder()
         .withUrl(hubUrl, {
-          accessTokenFactory: () => token.value || "",
+          accessTokenFactory: () => {
+            const currentToken = getAccessToken();
+            console.log("Token provided to SignalR:", !!currentToken);
+            return currentToken || "";
+          },
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
         })
         .withAutomaticReconnect({
@@ -130,13 +141,11 @@ export function useSignalR(hubUrl: string) {
         .configureLogging(signalR.LogLevel.Information)
         .build();
 
-      // Обработчики событий от сервера (注意 регистр: "newMessage", а не "newmessage")
       connection.value.on("newMessage", (data: any) => {
         console.log("📨 New message received:", data);
         messageCallbacks.forEach((cb) => cb(data));
       });
 
-      // Важно: "chatMessages" с большой буквы M
       connection.value.on("chatMessages", (messages: any[]) => {
         console.log("📚 Chat messages received:", messages);
         chatMessagesCallbacks.forEach((cb) => cb(messages));

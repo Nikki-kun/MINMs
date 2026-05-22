@@ -50,15 +50,18 @@ builder.Services
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notification"))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
-            },
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        // Check if the request is for SignalR hub
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/messageHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    },
             OnTokenValidated = async context =>
             {
                 var sessionService = context.HttpContext.RequestServices.GetRequiredService<IJwtSessionService>();
@@ -144,7 +147,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<MessageHub>("/notification");
+app.MapHub<MessageHub>("/messageHub");
 app.MapFallbackToFile("/index.html");
 
 app.Run();
