@@ -562,24 +562,6 @@ watch(isAuthenticated, async (authenticated) => {
               <p class="text-xs text-white/50">@{{ selectedChat.contactLogin }}</p>
             </div>
           </div>
-
-          <div class="flex items-center gap-1">
-            <button
-              class="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <Phone class="h-5 w-5" />
-            </button>
-            <button
-              class="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <Video class="h-5 w-5" />
-            </button>
-            <button
-              class="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <MoreVertical class="h-5 w-5" />
-            </button>
-          </div>
         </div>
 
         <!-- No Chat Selected -->
