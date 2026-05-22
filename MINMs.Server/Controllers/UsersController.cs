@@ -31,9 +31,9 @@ public sealed class UsersController(IUserSearchService userSearchService) : Cont
     public async Task<ActionResult<UserPublicDto>> GetUserByLogin(string login, CancellationToken cancellationToken)
     {
         var result = await userSearchService.GetByUserLoginAsync(login, cancellationToken).ConfigureAwait(false);
-    
-        return result is null 
-            ? NotFound() 
+
+        return result is null
+            ? NotFound()
             : Ok(result);
     }
 }

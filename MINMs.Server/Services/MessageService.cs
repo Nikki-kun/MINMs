@@ -9,39 +9,17 @@ namespace MINMs.Server.Services;
 
 public interface IMessageService
 {
-    Task<SendMessageResult> SendMessageAsync(
-        int senderId,
-        int chatId,
-        string content,
-        MessageType type = MessageType.Text,
-        CancellationToken cancellationToken = default);
+    Task<SendMessageResult> SendMessageAsync(int senderId, int chatId, string content, MessageType type = MessageType.Text, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<MessageDto>> GetMessagesAsync(
-        int userId,
-        int chatId,
-        int offset = 0,
-        int limit = 50,
-        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MessageDto>> GetMessagesAsync(int userId, int chatId, int offset = 0, int limit = 50, CancellationToken cancellationToken = default);
 
-    Task<MessageDto?> GetMessageByIdAsync(
-        int userId,
-        int messageId,
-        CancellationToken cancellationToken = default);
+    Task<MessageDto?> GetMessageByIdAsync(int userId, int messageId, CancellationToken cancellationToken = default);
 
-    Task<DeleteMessageResult> DeleteMessageAsync(
-        int userId,
-        int messageId,
-        CancellationToken cancellationToken = default);
+    Task<DeleteMessageResult> DeleteMessageAsync(int userId, int messageId, CancellationToken cancellationToken = default);
 
-    Task<bool> CanUserAccessChatAsync(
-        int userId,
-        int chatId,
-        CancellationToken cancellationToken = default);
+    Task<bool> CanUserAccessChatAsync(int userId, int chatId, CancellationToken cancellationToken = default);
 
-    Task<bool> IsUserBlockedInChatAsync(
-        int userId,
-        int chatId,
-        CancellationToken cancellationToken = default);
+    Task<bool> IsUserBlockedInChatAsync(int userId, int chatId, CancellationToken cancellationToken = default);
 }
 
 public sealed class MessageService(
