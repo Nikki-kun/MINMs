@@ -12,19 +12,26 @@ import {
   Search,
   ArrowLeft,
 } from "lucide-vue-next";
-import { useSignalR, contactsApi, type Contact, type ChatMessage } from "@/api/client.ts";
+import {
+  useSignalR,
+  contactsApi,
+  type Contact,
+  type ChatMessage,
+  type ChatPreview,
+} from "@/api/client.ts";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "vue-toastification";
 
-const { user, token, isAuthenticated } = useAuth();
+const { user, isAuthenticated } = useAuth();
 const toast = useToast();
 
 const hubUrl = `${window.location.protocol}//${window.location.host}/messageHub`;
 const signalR = useSignalR(hubUrl);
 
 const contacts = ref<Contact[]>([]);
+const chats = ref<ChatPreview[]>([]);
 const selectedChat = ref<{
-  chatId: number;
+  chatId: number | null;
   contactLogin: string;
   contactName: string;
   contactUsername: string;
@@ -37,6 +44,9 @@ const isLoadingMessages = ref(false);
 const isSending = ref(false);
 const searchQuery = ref("");
 const showMobileChat = ref(false);
+
+// Map для быстрого поиска chatId по логину контакта
+const contactChatMap = ref<Map<string, number>>(new Map());
 
 const filteredContacts = computed(() => {
   if (!searchQuery.value) return contacts.value;
@@ -54,33 +64,95 @@ async function loadContacts() {
 
   try {
     contacts.value = await contactsApi.getContacts();
+    console.log("📞 Contacts loaded:", contacts.value.length);
   } catch (error) {
     console.error("Failed to load contacts:", error);
     toast.error("Не удалось загрузить список контактов");
   }
 }
 
+function onUserChats(chatsList: ChatPreview[]) {
+  console.log("📋 User chats received:", chatsList);
+  chats.value = chatsList;
+
+  // Обновляем мапу соответствия логин -> chatId для личных чатов
+  contactChatMap.value.clear();
+  for (const chat of chatsList) {
+    if (chat.type === 1) {
+      // Personal chat
+      // Для личного чата нужно определить логин другого участника
+      // Для этого нужно получить информацию о чате
+      signalR.getChatInfo(chat.chatId);
+    }
+  }
+}
+
+function onChatInfo(chat: any) {
+  console.log("ℹ️ Chat info received:", chat);
+
+  if (chat.type === 1 && chat.participants) {
+    // Находим другого участника (не текущего пользователя)
+    const otherParticipant = chat.participants.find((p: any) => p.login !== user.value?.login);
+    if (otherParticipant) {
+      contactChatMap.value.set(otherParticipant.login, chat.chatId);
+      console.log(`✅ Mapped ${otherParticipant.login} -> chat ${chat.chatId}`);
+
+      // Если этот чат выбран, обновляем selectedChat
+      if (
+        selectedChat.value &&
+        selectedChat.value.contactLogin === otherParticipant.login &&
+        selectedChat.value.chatId === null
+      ) {
+        selectedChat.value.chatId = chat.chatId;
+        loadChatMessages(chat.chatId);
+      }
+    }
+  }
+}
+
 async function selectContact(contact: Contact) {
   isLoadingMessages.value = true;
 
-  const tempChatId = -Math.abs(contact.login.charCodeAt(0) + contact.login.length);
+  // Проверяем, есть ли уже существующий чат с этим контактом
+  let existingChatId = contactChatMap.value.get(contact.login);
 
-  selectedChat.value = {
-    chatId: tempChatId,
-    contactLogin: contact.login,
-    contactName: contact.contactName,
-    contactUsername: contact.username,
-  };
-
-  messages.value = [];
-
-  await signalR.joinChat(tempChatId);
-
-  await signalR.getChatMessages(tempChatId, 0, 50);
+  if (existingChatId) {
+    // Чат существует - присоединяемся
+    console.log(`📱 Existing chat found for ${contact.login}: ${existingChatId}`);
+    selectedChat.value = {
+      chatId: existingChatId,
+      contactLogin: contact.login,
+      contactName: contact.contactName,
+      contactUsername: contact.username,
+    };
+    await loadChatMessages(existingChatId);
+  } else {
+    // Чата еще нет - создаем временное состояние
+    console.log(`🆕 No existing chat for ${contact.login}, will create on first message`);
+    selectedChat.value = {
+      chatId: null,
+      contactLogin: contact.login,
+      contactName: contact.contactName,
+      contactUsername: contact.username,
+    };
+    messages.value = [];
+    isLoadingMessages.value = false;
+  }
 
   if (window.innerWidth < 768) {
     showMobileChat.value = true;
   }
+}
+
+async function loadChatMessages(chatId: number) {
+  isLoadingMessages.value = true;
+  messages.value = [];
+
+  // Присоединяемся к группе чата для получения реального времени
+  await signalR.joinChat(chatId);
+
+  // Загружаем историю сообщений
+  await signalR.getChatMessages(chatId, 0, 50);
 }
 
 function backToContacts() {
@@ -99,53 +171,102 @@ async function sendMessage() {
   const messageContent = newMessage.value.trim();
   newMessage.value = "";
 
-  try {
-    const tempMessage: ChatMessage = {
-      messageId: -Date.now(),
-      senderId: 0,
-      senderLogin: user.value?.login || "",
-      senderUsername: user.value?.username || "",
-      chatId: selectedChat.value.chatId,
-      content: messageContent,
-      messageCreatedAt: new Date().toISOString(),
-      status: 0,
-      type: 0,
-    };
-    messages.value.push(tempMessage);
-    scrollToBottom();
+  // Временное сообщение для оптимистичного обновления UI
+  const tempId = -Date.now();
+  const tempMessage: ChatMessage = {
+    messageId: tempId,
+    senderId: parseInt(user.value?.userId || "0"),
+    senderLogin: user.value?.login || "",
+    senderUsername: user.value?.username || "",
+    chatId: selectedChat.value.chatId || tempId,
+    content: messageContent,
+    messageCreatedAt: new Date().toISOString(),
+    status: 0,
+    type: 0,
+  };
+  messages.value.push(tempMessage);
+  scrollToBottom();
 
-    await signalR.sendMessageToUser(selectedChat.value.contactLogin, messageContent);
+  try {
+    if (selectedChat.value.chatId === null) {
+      // Новый чат - отправляем через SendMessageToUser, который создаст чат на сервере
+      console.log(`📤 Creating new chat with ${selectedChat.value.contactLogin}`);
+      const success = await signalR.sendMessageToUser(
+        selectedChat.value.contactLogin,
+        messageContent,
+      );
+
+      if (!success) {
+        throw new Error("Failed to send message");
+      }
+
+      // Ждем, когда сервер создаст чат и вернет информацию через onChatInfo
+      // Чат будет создан асинхронно, и onChatInfo обновит selectedChat.chatId
+      console.log("⏳ Waiting for chat creation...");
+
+      // Даем время на создание чата (максимум 2 секунды)
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Проверяем, обновился ли chatId
+      if (selectedChat.value.chatId === null) {
+        // Если все еще null, запрашиваем список чатов для обновления мапы
+        await signalR.getUserChats();
+      }
+    } else {
+      // Существующий чат
+      await signalR.sendMessageToChat(selectedChat.value.chatId, messageContent);
+    }
   } catch (error) {
     console.error("Failed to send message:", error);
     toast.error("Не удалось отправить сообщение");
-    messages.value = messages.value.filter((m) => m.messageId !== -Date.now());
+    // Удаляем временное сообщение при ошибке
+    messages.value = messages.value.filter((m) => m.messageId !== tempId);
   } finally {
     isSending.value = false;
   }
 }
 
 function onNewMessage(message: any) {
-  console.log("New message received:", message);
+  console.log("📨 New message received:", message);
 
-  if (selectedChat.value && message.chatId === selectedChat.value.chatId) {
-    const newMsg: ChatMessage = {
-      messageId: message.messageId || Date.now(),
-      senderId: message.senderId,
-      senderLogin: message.senderLogin,
-      senderUsername: message.senderUsername,
-      chatId: message.chatId,
-      content: message.message,
-      messageCreatedAt: message.createdAt || new Date().toISOString(),
-      status: 1,
-      type: message.type || 0,
-    };
-    messages.value.push(newMsg);
-    scrollToBottom();
+  // Обновляем мапу чатов
+  if (message.chatId && message.senderLogin) {
+    if (
+      !contactChatMap.value.has(message.senderLogin) &&
+      message.senderLogin !== user.value?.login
+    ) {
+      contactChatMap.value.set(message.senderLogin, message.chatId);
+      console.log(`✅ Mapped ${message.senderLogin} -> ${message.chatId} from message`);
+    }
   }
+
+  // Проверяем, относится ли сообщение к текущему чату
+  if (selectedChat.value && message.chatId === selectedChat.value.chatId) {
+    // Проверяем дубликаты
+    const exists = messages.value.some((m) => m.messageId === message.messageId);
+    if (!exists) {
+      const newMsg: ChatMessage = {
+        messageId: message.messageId || Date.now(),
+        senderId: message.senderId,
+        senderLogin: message.senderLogin,
+        senderUsername: message.senderUsername,
+        chatId: message.chatId,
+        content: message.content || message.message,
+        messageCreatedAt: message.createdAt || message.messageCreatedAt || new Date().toISOString(),
+        status: 1,
+        type: message.type || 0,
+      };
+      messages.value.push(newMsg);
+      scrollToBottom();
+    }
+  }
+
+  // Обновляем список чатов для отображения последнего сообщения
+  signalR.getUserChats();
 }
 
 function onChatMessages(messagesList: any[]) {
-  console.log("Chat messages history:", messagesList);
+  console.log("📚 Chat messages history:", messagesList.length);
   messages.value = messagesList.map((msg) => ({
     messageId: msg.messageId,
     senderId: msg.senderId,
@@ -161,20 +282,24 @@ function onChatMessages(messagesList: any[]) {
   nextTick(() => scrollToBottom());
 }
 
+function onJoinedChat(chatId: number) {
+  console.log("✅ Successfully joined chat:", chatId);
+}
+
 function onConnectionChange(connected: boolean) {
   if (connected) {
-    console.log("SignalR connected, reloading chats if needed");
-    if (selectedChat.value) {
+    console.log("✅ SignalR connected, loading chats...");
+    // Загружаем чаты при подключении
+    signalR.getUserChats();
+
+    // Если выбран чат, переподключаемся к нему
+    if (selectedChat.value && selectedChat.value.chatId) {
       signalR.joinChat(selectedChat.value.chatId);
       signalR.getChatMessages(selectedChat.value.chatId, 0, 50);
     }
   } else {
     toast.warning("Потеряно соединение с сервером");
   }
-}
-
-function onJoinedChat(chatId: number) {
-  console.log("Joined chat:", chatId);
 }
 
 function scrollToBottom() {
@@ -240,19 +365,20 @@ onMounted(async () => {
   if (isAuthenticated.value) {
     await loadContacts();
 
+    // Регистрируем обработчики SignalR
     signalR.onNewMessage(onNewMessage);
     signalR.onChatMessages(onChatMessages);
     signalR.onConnectionChange(onConnectionChange);
     signalR.onJoinedChat(onJoinedChat);
+    signalR.onUserChats(onUserChats);
+    signalR.onChatInfo(onChatInfo);
 
+    // Подключаемся к SignalR
     await signalR.connect();
   }
 });
 
 onUnmounted(async () => {
-  if (selectedChat.value) {
-    await signalR.leaveChat(selectedChat.value.chatId);
-  }
   await signalR.disconnect();
 });
 
@@ -263,8 +389,10 @@ watch(isAuthenticated, async (authenticated) => {
   } else {
     await signalR.disconnect();
     contacts.value = [];
+    chats.value = [];
     selectedChat.value = null;
     messages.value = [];
+    contactChatMap.value.clear();
   }
 });
 </script>
@@ -449,7 +577,13 @@ watch(isAuthenticated, async (authenticated) => {
                 <MessagesSquare class="h-6 w-6 text-white/30" />
               </div>
               <p class="text-sm text-white/40">Нет сообщений</p>
-              <p class="text-xs text-white/30">Напишите что-нибудь, чтобы начать диалог</p>
+              <p class="text-xs text-white/30">
+                {{
+                  selectedChat.chatId === null
+                    ? "Напишите первое сообщение"
+                    : "Напишите что-нибудь, чтобы начать диалог"
+                }}
+              </p>
             </div>
 
             <div v-else>
