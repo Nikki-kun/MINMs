@@ -83,8 +83,9 @@ public sealed class AuthService(IDbConnectionFactory connectionFactory, JwtToken
     private static string GenerateLogin(string username)
     {
         var baseLogin = BuildBaseLogin(username);
-        var suffix = Guid.NewGuid().ToString("N")[..4];
-        var candidate = $"{baseLogin}_{suffix}";
+        //var suffix = Guid.NewGuid().ToString("N")[..4];
+        var suffix = "";
+        var candidate = $"{baseLogin}{suffix}";
 
         if (UserLoginNormalizer.IsValid(candidate))
             return candidate;
